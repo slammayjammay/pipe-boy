@@ -1,0 +1,40 @@
+{
+  "name": "pipe-boy",
+  "version": "1.0.0",
+  "description": "Interactive CLI to pass output from one command as input to another",
+  "bin": "bin/pipe-boy.js",
+  "engines": {
+    "node": ">=7"
+  },
+  "keywords": [
+    "pipe",
+    "interactive",
+    "awk",
+    "preview",
+    "cli",
+    "command",
+    "terminal"
+  ],
+  "author": {
+    "name": "Scott McKenzie",
+    "email": "slammayjammay@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slammayjammay/pipe-boy"
+  },
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "./scripts/copy-config.js --postinstall"
+  },
+  "dependencies": {
+    "ansi-escapes": "^3.1.0",
+    "chalk": "^2.4.1",
+    "edit-json-file": "^1.0.8",
+    "minimist": "^1.2.0",
+    "node-pager": "^0.3.2",
+    "slice-ansi": "^1.0.0",
+    "terminal-jumper": "^0.4.4",
+    "wrap-ansi": "^3.0.1"
+  }
+}
