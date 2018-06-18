@@ -163,7 +163,6 @@ class PipeBoy {
 		process.exit(0);
 	}
 
-
 	setInfoBlock() {
 		let infoBlock = `${chalk.bold.green('PipeBoy')}\n`;
 		infoBlock += `${chalk.gray(new Array(40).join('-'))}\n`;
@@ -257,7 +256,7 @@ class PipeBoy {
 	async onTabPhase1(char, key) {
 		const output = await this.exec(this.rl.line);
 
-		if (key.shift || output.split('\n').length > this.getAvailableOutputHeight()) {
+		if (key.shift || this.splitOutputIntoLines(output).length > this.getAvailableOutputHeight()) {
 			jumper.erase();
 			await pager(output);
 		} else {
