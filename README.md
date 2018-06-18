@@ -4,7 +4,7 @@
 Node 7+ required!
 
 ```sh
-$ npm install --global https://github.com/slammayjammay/pipe-boy
+$ npm install --global pipe-boy
 ```
 
 ## Usage
