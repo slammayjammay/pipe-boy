@@ -23,6 +23,7 @@ class PipeBoy {
 		this.isPhase1 = false;
 		this.isPhase2 = false;
 		this.phase1Command = '';
+		this.cwd = null;
 		this.isSelecting = false;
 		this.selectingIdx = -1;
 		this.scrollIdx = 0;
@@ -99,6 +100,10 @@ class PipeBoy {
 			});
 		});
 
+		if (this.config.setCwdOnCd) {
+			this.cwd = this.parseCwdOnCd(command);
+		}
+
 		const output = await this.exec(command);
 
 		this.input = output.trim().replace(/\t/g, TAB_FAKER);
@@ -107,6 +112,22 @@ class PipeBoy {
 		this.isPhase2 = true;
 
 		this.phase2();
+	}
+
+	parseCwdOnCd(command) {
+		const regex = /cd\s+([^\s"]+|"[^"]*")+/;
+		const match = regex.exec(command);
+
+		if (match == null) {
+			return null;
+		} else if (match) {
+			let cwd = match && match[1];
+			if (cwd[0] === '"' && cwd[cwd.length - 1] === '"') {
+				cwd = cwd.slice(1, cwd.length - 1);
+			}
+
+			return cwd;
+		}
 	}
 
 	async phase2() {
@@ -133,6 +154,7 @@ class PipeBoy {
 			this.rl.cursor = this.rl.line.length;
 			this.isPhase1 = true;
 			this.isPhase2 = false;
+			this.cwd = null;
 			this.isSelecting = false;
 			this.selectingIdx = -1;
 			this.scrollIdx = 0;
@@ -149,7 +171,7 @@ class PipeBoy {
 		})();
 
 		command = command.replace('$1', input);
-		const output = await this.exec(command);
+		const output = await this.exec(command, { cwd: this.cwd });
 
 		jumper.reset();
 		jumper.block(chalk.cyan(`$ ${command}`));
@@ -279,7 +301,7 @@ class PipeBoy {
 		})();
 
 		const command = this.rl.line.replace('$1', str);
-		const output = await this.exec(command);
+		const output = await this.exec(command, { cwd: this.cwd });
 
 		jumper.erase();
 		await pager(output);
@@ -356,17 +378,15 @@ class PipeBoy {
 		process.stdout.write(cursorShow);
 	}
 
-	exec(command) {
+	exec(command, options = {}) {
 		return new Promise(resolve => {
 			if (this.customFunctions) {
 				command = this.customFunctions + command;
 			}
 
-			const options = {
-				env: Object.assign({}, process.env, {
-					'FORCE_COLOR': this.config.FORCE_COLOR
-				})
-			};
+			options.env = Object.assign({}, process.env, {
+				'FORCE_COLOR': this.config.FORCE_COLOR
+			}, options.env);
 
 			exec(command, options, (error, stdout, stderr) => {
 				const output = stderr ? chalk.red(stderr) : stdout;
