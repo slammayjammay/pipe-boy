@@ -40,5 +40,19 @@ if (args._[0] === 'config') {
 } else if (args.help || args._[0] === 'help') {
 	showHelpScreen();
 } else {
-	new PipeBoy(process.argv.slice(2).join('\n'));
+	try {
+		const program = new PipeBoy(process.argv.slice(2).join('\n'));
+
+		program.catch(e => {
+			console.log(e);
+			process.exit(1);
+		});
+
+		program.then(() => {
+			process.exit(0);
+		});
+	} catch(e) {
+		console.log(e);
+		process.exit(1);
+	}
 }
