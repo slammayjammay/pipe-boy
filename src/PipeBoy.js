@@ -3,15 +3,18 @@ const { readFileSync } = require('fs');
 const { exec } = require('child_process');
 const readline = require('readline');
 const chalk = require('chalk');
+const ansiEscapes = require('ansi-escapes');
 const sliceAnsi = require('slice-ansi');
-const { cursorShow, cursorHide, eraseLine } = require('ansi-escapes');
-const jumper = require('terminal-jumper');
+const stripAnsi = require('strip-ansi');
+const TerminalJumper = require('../../terminal-jumper');
 const pager = require('node-pager');
 require('./readline-hack');
 
 const CONFIG_DIR_PATH = `${homedir()}/.pipe-boy/`;
 const TAB_NUM_SPACES = 8;
 const TAB_FAKER = new Array(TAB_NUM_SPACES).join(' ');
+
+const DEBUG = false;
 
 class PipeBoy {
 	constructor(input = '') {
@@ -20,6 +23,7 @@ class PipeBoy {
 		this.onKeypress = this.onKeypress.bind(this);
 		this.onExit = this.onExit.bind(this);
 
+		this.jumper = null;
 		this.isPhase1 = false;
 		this.isPhase2 = false;
 		this.phase1Command = '';
@@ -34,7 +38,7 @@ class PipeBoy {
 			this.isPhase1 = true;
 		}
 
-		this.begin();
+		return this.begin();
 	}
 
 	begin() {
@@ -57,12 +61,18 @@ class PipeBoy {
 		});
 		this.rl.input.on('keypress', this.onKeypress);
 
-		this.setJumperTemplate();
+		this.jumper = this._createTerminalJumper();
+
+		this.jumper.addBlock('commandDiv.prompt');
+		this.jumper.addBlock('commandDiv.input');
+		this.jumper.addBlock('commandDiv');
+		this.jumper.addBlock('commandDiv.divider');
+		this.jumper.addBlock('outputDiv.output');
 
 		if (this.isPhase1) {
-			this.phase1();
+			return this.phase1();
 		} else if (this.isPhase2) {
-			this.phase2();
+			return this.phase2();
 		}
 	}
 
@@ -70,19 +80,58 @@ class PipeBoy {
 		return readFileSync(`${CONFIG_DIR_PATH}/functions.sh`).toString();
 	}
 
-	setJumperTemplate() {
-		jumper.block('', 'info-block');
-		jumper.block('', 'command-prompt');
-		jumper.block('', 'command-input');
-		jumper.block('', 'newline');
-		jumper.block(new Array(Math.min(process.stdout.columns, 70)).join('='), 'divider');
+	_createTerminalJumper() {
+		const infoDiv = {
+			id: 'infoDiv',
+			left: 0,
+			top: 0,
+			width: 0.5,
+			overflowX: 'wrap',
+			wrapOnWord: true
+		};
+
+		const commandDiv = {
+			id: 'commandDiv',
+			left: 0,
+			top: infoDiv.id,
+			width: 1,
+			overflowX: 'wrap'
+		};
+
+		const outputDiv = {
+			id: 'outputDiv',
+			left: 0,
+			top: commandDiv.id,
+			width: 1,
+			overflowX: 'wrap'
+		};
+
+		const debugDiv = {
+			id: 'debugger',
+			width: 0.3,
+			left: 0.7,
+			top: 0
+		};
+
+		return new TerminalJumper({
+			divisions: [infoDiv, commandDiv, outputDiv],
+			debug: DEBUG ? debugDiv : false
+		});
 	}
 
 	async phase1() {
 		this.setInfoBlock();
-		jumper.find('command-prompt').content(`Command ${chalk.cyan(1)}`);
-		this.render();
-		jumper.jumpTo('command-input', -1);
+
+		this.jumper.getBlock('commandDiv.prompt').content(`Command ${chalk.cyan(1)}`);
+		this.jumper.getBlock('commandDiv.divider').content(
+			new Array(Math.min(process.stdout.columns, 70)).join('=')
+		);
+
+		this.jumper
+			.chain()
+			.render()
+			.jumpTo('commandDiv.input', -1)
+			.execute();
 
 		const command = await new Promise(resolve => {
 			const that = this;
@@ -92,9 +141,12 @@ class PipeBoy {
 					that.rl.removeListener('line', onLine);
 					resolve(line);
 				} else {
-					that.setCommandOutput(chalk.red('Please enter a command'));
-					this.render();
-					jumper.jumpTo('command-input', -1);
+					that.jumper.block('outputDiv.output').content(chalk.red('Please enter a command'));
+					that.jumper
+						.chain()
+						.render()
+						.jumpTo('commandDiv.input', -1)
+						.execute();
 				}
 			});
 		});
@@ -106,7 +158,7 @@ class PipeBoy {
 		this.isPhase1 = false;
 		this.isPhase2 = true;
 
-		this.phase2();
+		return this.phase2();
 	}
 
 	async phase2() {
@@ -114,21 +166,23 @@ class PipeBoy {
 		this.rl.cursor = this.rl.line.length;
 
 		this.setInfoBlock();
-		jumper.find('command-prompt').content(`Command ${chalk.cyan(2)}`);
-		jumper.find('command-input').content(this.rl.line);
-		this.setCommandOutput(this.input);
-		this.render();
-		jumper.jumpTo('command-input', -1);
+		this.jumper.getBlock('commandDiv.prompt').content(`Command ${chalk.cyan(2)}`);
+		this.jumper.getBlock('commandDiv.input').content(this.rl.line);
+		this.jumper.getBlock('outputDiv.output').content(this.input);
+
+		this.jumper
+			.chain()
+			.render()
+			.jumpTo('commandDiv.input', -1)
+			.execute();
 
 		let command = await new Promise(resolve => {
-			this.rl.once('line', line => {
-				resolve(line);
-			});
+			this.rl.once('line', line => resolve(line));
 		});
 
 		if (command.trim() === ':back') {
-			jumper.removeAllMatching(/command-output-\d/);
-			jumper.find('command-input').content(this.phase1Command);
+			this.jumper.getBlock('outputDiv.output').content('');
+			this.jumper.getBlock('commandDiv.input').content(this.phase1Command);
 			this.rl.line = this.phase1Command;
 			this.rl.cursor = this.rl.line.length;
 			this.isPhase1 = true;
@@ -136,34 +190,40 @@ class PipeBoy {
 			this.isSelecting = false;
 			this.selectingIdx = -1;
 			this.scrollIdx = 0;
-			this.phase1();
-			return;
+			return this.phase1();
 		}
 
 		const input = (() => {
 			if (this.isSelecting) {
-				return jumper.find(`command-output-${this.selectingIdx}`).escapedText;
+				const division = this.jumper.getDivision('outputDiv');
+				const block = division.getBlock('output');
+				const line = block.getRow(division.scrollPosY() + this.selectingIdx);
+				return stripAnsi(line);
 			} else {
 				return this.input;
 			}
 		})();
 
+		this.jumper.erase();
+		this.jumper.destroy();
+
 		command = command.replace('$1', input);
 		const output = await this.exec(command);
 
-		jumper.reset();
-		jumper.block(chalk.cyan(`$ ${command}`));
-		jumper.break();
-		jumper.block(new Array(Math.min(process.stdout.columns, 70)).join('='), 'divider');
-		jumper.break();
-		jumper.block(output);
-		this.render();
+		console.log(chalk.cyan(`$ ${command}`));
+		console.log();
+		console.log(new Array(Math.min(process.stdout.columns, 70)).join('='));
+		console.log();
+		console.log(output);
 
-		this.isDone = true;
-		process.exit(0);
+		return this.end();
 	}
 
 	setInfoBlock() {
+		if (!this.jumper.hasBlock('infoDiv.info')) {
+			this.jumper.addBlock('infoDiv.info');
+		}
+
 		let infoBlock = `${chalk.bold.green('PipeBoy')}\n`;
 		infoBlock += `${chalk.gray(new Array(40).join('-'))}\n`;
 
@@ -182,49 +242,7 @@ class PipeBoy {
 
 		infoBlock += `${chalk.gray(new Array(40).join('-'))}\n`;
 
-		jumper.find('info-block').content(infoBlock);
-	}
-
-	setCommandOutput(string) {
-		this.commandOutput = this.splitOutputIntoLines(string);
-
-		const availableOutputHeight = this.getAvailableOutputHeight();
-		const length = Math.min(availableOutputHeight, this.commandOutput.length);
-
-		jumper.removeAllMatching(/command-output-\d/);
-
-		for (let i = 0; i < length; i++) {
-			jumper.block(this.commandOutput[i], `command-output-${i}`);
-		}
-	}
-
-	getAvailableOutputHeight() {
-		let height = 0;
-		const ids = ['info-block', 'command-prompt', 'command-input', 'newline', 'divider'];
-		ids.forEach(id => height += jumper.find(id).height());
-
-		return process.stdout.rows - height - 3;
-	}
-
-	splitOutputIntoLines(string) {
-		const lines = string.trim().split('\n');
-
-		const maxWidth = process.stdout.columns - 5;
-
-		let i = 0;
-		while (i < lines.length) {
-			const line = lines[i];
-			const truncated = sliceAnsi(line, 0, maxWidth);
-
-			if (truncated.length < line.length) {
-				lines[i] = sliceAnsi(line, maxWidth);
-				lines.splice(i, 0, truncated);
-			}
-
-			i += 1;
-		}
-
-		return lines;
+		this.jumper.getBlock('infoDiv.info').content(infoBlock);
 	}
 
 	onKeypress(char, key) {
@@ -233,14 +251,14 @@ class PipeBoy {
 		} else if (['up', 'down'].includes(key.name)) {
 			this.onArrow(char, key);
 		} else if (key.name !== 'return') {
-			jumper.find('command-input').content(this.rl.line);
+			this.jumper.getBlock('commandDiv.input').content(this.rl.line);
 		}
 	}
 
 	async onTab(char, key) {
 		this.rl.line = this.rl.line.replace(/\t/g, '');
 		this.rl.cursor = this.rl.line.length;
-		jumper.find('command-input').content(this.rl.line);
+		this.jumper.getBlock('commandDiv.input').content(this.rl.line);
 
 		if (this.rl.line.trim() === '') {
 			return;
@@ -256,15 +274,24 @@ class PipeBoy {
 	async onTabPhase1(char, key) {
 		const output = await this.exec(this.rl.line);
 
-		if (key.shift || this.splitOutputIntoLines(output).length > this.getAvailableOutputHeight()) {
-			jumper.erase();
-			await pager(output);
-		} else {
-			this.setCommandOutput(output);
+		const division = this.jumper.getDivision('outputDiv');
+		const block = division.getBlock('output');
+		const previousText = block.text;
+
+		block.content(output);
+
+		if (key.shift || block.height() > division.height()) {
+			this.jumper.erase();
+			await pager(block.text);
+			block.content(previousText);
 		}
 
-		this.render();
-		jumper.jumpTo('command-input', -1);
+		this.jumper
+			.chain()
+			.render()
+			.jumpTo('commandDiv.input', -1)
+			.execute()
+
 		return Promise.resolve();
 	}
 
@@ -272,7 +299,8 @@ class PipeBoy {
 		const cmd = this.rl.line;
 		const str = (() => {
 			if (this.isSelecting) {
-				return jumper.find(`command-output-${this.selectingIdx}`).escapedText;
+				const block = this.jumper.getBlock('outputDiv.output');
+				return stripAnsi(block.getRow(this.selectingIdx));
 			} else {
 				return this.input;
 			}
@@ -281,16 +309,18 @@ class PipeBoy {
 		const command = this.rl.line.replace('$1', str);
 		const output = await this.exec(command);
 
-		jumper.erase();
+		this.jumper.erase();
 		await pager(output);
-		this.render();
 
+		this.jumper.chain().render();
 		if (this.isSelecting) {
-			jumper.jumpTo(`command-output-${this.selectingIdx}`, -1);
-			process.stdout.write(`   ${chalk.bold.blue('⬅')}`);
+			this.jumper
+				.jumpTo('outputDiv.output', -1, this.selectingIdx)
+				.appendToChain(`   ${chalk.bold.blue('⬅')}`);
 		}
+		this.jumper.jumpTo('commandDiv.input', -1);
+		this.jumper.execute();
 
-		jumper.jumpTo('command-input', -1);
 		return Promise.resolve();
 	}
 
@@ -300,60 +330,99 @@ class PipeBoy {
 		}
 		this.isSelecting = true;
 
-		if (key.name === 'down' && this.selectingIdx === jumper.findAllMatching(/command-output-\d/).length - 1) {
-			this.scrollOutput(1);
-			return;
-		} else if (key.name === 'up' && this.scrollIdx > 0 && this.selectingIdx === 0) {
-			this.scrollOutput(-1);
-			return;
+		const division = this.jumper.getDivision('outputDiv');
+
+		const outputDivHeight = division.height() - 1;
+		const outputBlockHeight = division.getBlock('output').height() - 1;
+		const isOutputOverflowing = outputBlockHeight > outputDivHeight;
+
+		if (isOutputOverflowing) {
+			if (key.name === 'down' && this.selectingIdx === outputDivHeight) {
+				this.scrollOutputDown();
+				return;
+			} else if (key.name === 'up' && this.selectingIdx === 0) {
+				this.scrollOutputUp();
+				return;
+			}
 		}
 
+		let writeString = '';
+
+		// erase previous indicator
 		if (this.selectingIdx >= 0) {
-			jumper.jumpTo(`command-output-${this.selectingIdx}`, -1);
-			process.stdout.write('    ');
+			const row = this.selectingIdx + division.scrollPosY();
+			writeString += this.jumper.jumpToString('outputDiv.output', -1, row);
+			writeString += '    ';
 		}
 
 		this.selectingIdx += key.name === 'up' ? -1 : 1;
 
+		// move back up to command prompt
 		if (this.selectingIdx < 0 && this.scrollIdx === 0) {
 			this.isSelecting = false;
-			jumper.jumpTo('command-input', -1);
+			writeString += this.jumper.jumpToString('commandDiv.input', -1);
+			process.stdout.write(writeString);
 			return;
 		}
 
-		jumper.jumpTo(`command-output-${this.selectingIdx}`, -1);
-		process.stdout.write(`   ${chalk.bold.blue('⬅')}`);
+		if (this.selectingIdx > outputBlockHeight) {
+			this.selectingIdx = outputBlockHeight;
+		}
 
-		jumper.jumpTo('command-input', -1);
+		writeString += division.jumpToString('output', -1, this.selectingIdx + division.scrollPosY());
+		writeString += `   ${chalk.bold.blue('⬅')}`;
+		writeString += this.jumper.jumpToString('commandDiv.input', -1);
+
+		process.stdout.write(writeString);
 	}
 
-	scrollOutput(dir) {
-		const numLines = jumper.findAllMatching(/command-output-\d/).length;
-		const endScrollIdx = this.commandOutput.length - numLines;
+	scrollOutputDown() {
+		const division = this.jumper.getDivision('outputDiv');
+		const block = this.jumper.getBlock('outputDiv.output');
 
-		if (this.scrollIdx + dir < 0 || this.scrollIdx + dir > endScrollIdx) {
+		this.jumper.scrollDown('outputDiv', 1);
+		this.scrollIdx = division.scrollPosY();
+
+		const lastRow = division.height() - 1 + division.scrollPosY();
+		const lastRowWidth = block.getWidthOnRow(lastRow);
+
+		this.jumper.chain()
+			.render()
+			.jumpTo('outputDiv', lastRowWidth, -1)
+			.appendToChain(`   ${chalk.bold.blue('⬅')}`)
+			.jumpTo('commandDiv.input')
+			.execute();
+	}
+
+	scrollOutputUp() {
+		const division = this.jumper.getDivision('outputDiv');
+		const block = this.jumper.getBlock('outputDiv.output');
+
+		if (this.scrollIdx === 0) {
 			return;
 		}
-		this.scrollIdx += dir;
+		this.scrollIdx -= 1;
 
-		const lines = this.commandOutput.slice(this.scrollIdx, this.scrollIdx + numLines);
-
-		// avoid a full jumper.render() by printing each line manually
-		jumper.jumpTo('command-output-0');
-		for (let i = 0; i < numLines; i++) {
-			jumper.find(`command-output-${i}`).content(lines[i]);
-			process.stdout.write(eraseLine + lines[i] + '\n')
-		}
-
-		jumper.jumpTo(`command-output-${this.selectingIdx}`, -1);
-		process.stdout.write(`   ${chalk.bold.blue('⬅')}`);
-		jumper.jumpTo('command-input', -1);
+		this.jumper.chain()
+			.scrollUp('outputDiv', 1)
+			.render()
+			.jumpTo('outputDiv.output', -1, division.scrollPosY())
+			.appendToChain(`   ${chalk.bold.blue('⬅')}`)
+			.jumpTo('commandDiv.input')
+			.execute();
 	}
 
-	render() {
-		process.stdout.write(cursorHide);
-		jumper.render();
-		process.stdout.write(cursorShow);
+	render(options = {}) {
+		let writeString = '';
+		writeString += ansiEscapes.cursorHide;
+		writeString += this.jumper.renderString();
+		writeString += ansiEscapes.cursorShow;
+
+		if (options.writeToTerminal) {
+			process.stdout.write(writeString);
+		} else {
+			return writeString;
+		}
 	}
 
 	exec(command) {
@@ -375,9 +444,16 @@ class PipeBoy {
 		});
 	}
 
+	end() {
+		this.isDone = true;
+		this.rl.close();
+
+		return Promise.resolve();
+	}
+
 	onExit() {
 		if (!this.isDone) {
-			jumper.erase();
+			this.jumper.erase();
 		}
 
 		this.rl.close();
