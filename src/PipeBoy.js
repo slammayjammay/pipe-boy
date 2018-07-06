@@ -239,7 +239,7 @@ class PipeBoy {
 
 	async onTab(char, key) {
 		this.rl.line = this.rl.line.replace(/\t/g, '');
-		this.rl.cursor = this.rl.line.length;
+		this.rl.cursor -= 1;
 		jumper.find('command-input').content(this.rl.line);
 
 		if (this.rl.line.trim() === '') {
@@ -264,7 +264,7 @@ class PipeBoy {
 		}
 
 		this.render();
-		jumper.jumpTo('command-input', -1);
+		jumper.jumpTo('command-input', this.rl.cursor);
 		return Promise.resolve();
 	}
 
