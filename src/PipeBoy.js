@@ -85,7 +85,7 @@ class PipeBoy {
 
 		const infoDiv = {
 			id: 'infoDiv',
-			left: 0.6,
+			left: headerDiv.id,
 			top: 0,
 			width: 0.4
 		};
@@ -271,7 +271,7 @@ class PipeBoy {
 		const borderBottom = chalk.gray(`┗${new Array(borderWidth - 1).join('━')}┛`);
 
 		this.jumper.getBlock('infoDiv.info').content(
-			[borderTop, ...lines, borderBottom].map(line => `${line}`).join('\n')
+			[borderTop, ...lines, borderBottom].join('\n')
 		);
 	}
 
