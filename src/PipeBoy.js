@@ -62,12 +62,7 @@ class PipeBoy {
 		this.rl.input.on('keypress', this.onKeypress);
 
 		this.jumper = this._createTerminalJumper();
-
-		this.jumper.addBlock('commandDiv.prompt');
-		this.jumper.addBlock('commandDiv.input');
-		this.jumper.addBlock('commandDiv');
-		this.jumper.addBlock('commandDiv.divider');
-		this.jumper.addBlock('outputDiv.output');
+		this._createJumperTemplate();
 
 		if (this.isPhase1) {
 			return this.phase1();
@@ -81,21 +76,25 @@ class PipeBoy {
 	}
 
 	_createTerminalJumper() {
+		const headerDiv = {
+			id: 'headerDiv',
+			top: 0,
+			left: 0,
+			width: 0.5
+		};
+
 		const infoDiv = {
 			id: 'infoDiv',
-			left: 0,
+			left: 0.6,
 			top: 0,
-			width: 0.5,
-			overflowX: 'wrap',
-			wrapOnWord: true
+			width: 0.4
 		};
 
 		const commandDiv = {
 			id: 'commandDiv',
 			left: 0,
-			top: infoDiv.id,
-			width: 1,
-			overflowX: 'wrap'
+			top: headerDiv.id,
+			width: 0.5
 		};
 
 		const outputDiv = {
@@ -110,13 +109,34 @@ class PipeBoy {
 			id: 'debugger',
 			width: 0.3,
 			left: 0.7,
-			top: 0
+			top: 0.5
 		};
 
 		return new TerminalJumper({
-			divisions: [infoDiv, commandDiv, outputDiv],
+			divisions: [headerDiv, infoDiv, commandDiv, outputDiv],
 			debug: DEBUG ? debugDiv : false
 		});
+	}
+
+	_createJumperTemplate() {
+		const banner = [
+			' ______ __               ______                ',
+			'|   __ \\__|.-----.-----.|   __ \\.-----.--.--.',
+			'|    __/  ||  _  |  -__||   __ <|  _  |  |  |',
+			'|___|  |__||   __|_____||______/|_____|___  |',
+			'           |__|                       |_____|'
+		];
+
+		this.jumper.addBlock(`headerDiv.header`, chalk.green(banner.join('\n')));
+		this.jumper.addBlock(`headerDiv`);
+		const headerWidth = this.jumper.getDivision('headerDiv').width();
+
+		this.jumper.addBlock('commandDiv');
+		this.jumper.addBlock('commandDiv.prompt');
+		this.jumper.addBlock('commandDiv.input');
+		this.jumper.addBlock('commandDiv');
+		this.jumper.addBlock('commandDiv.divider');
+		this.jumper.addBlock('outputDiv.output');
 	}
 
 	async phase1() {
@@ -124,7 +144,7 @@ class PipeBoy {
 
 		this.jumper.getBlock('commandDiv.prompt').content(`Command ${chalk.cyan(1)}`);
 		this.jumper.getBlock('commandDiv.divider').content(
-			new Array(Math.min(process.stdout.columns, 70)).join('=')
+			new Array(this.jumper.getDivision('outputDiv').width()).join('=')
 		);
 
 		this.jumper
@@ -212,7 +232,7 @@ class PipeBoy {
 
 		console.log(chalk.cyan(`$ ${command}`));
 		console.log();
-		console.log(new Array(Math.min(process.stdout.columns, 70)).join('='));
+		console.log(new Array(process.stdout.columns).join('='));
 		console.log();
 		console.log(output);
 
@@ -224,25 +244,35 @@ class PipeBoy {
 			this.jumper.addBlock('infoDiv.info');
 		}
 
-		let infoBlock = `${chalk.bold.green('PipeBoy')}\n`;
-		infoBlock += `${chalk.gray(new Array(40).join('-'))}\n`;
+		const borderWidth = ~~(this.jumper.getDivision('infoDiv').width());
+		const borderTop = chalk.gray(`┏${new Array(borderWidth - 1).join('━')}┓`);
+
+		let lines = [];
 
 		if (this.isPhase1) {
-			infoBlock += chalk.gray(`Press ${chalk.yellow('tab')} or ${chalk.yellow('shift+tab')} to preview\n`);
-			infoBlock += chalk.gray(`Press ${chalk.yellow('enter')} to confirm\n`);
-			infoBlock += chalk.gray(`Pass ${chalk.cyan('--help')} or ${chalk.cyan('-h')} for more info\n`);
+			lines.push(chalk.gray(`${chalk.yellow('tab')} or ${chalk.yellow('shift+tab')} to preview`));
+			lines.push(chalk.gray(`${chalk.yellow('enter')} to confirm`));
+			lines.push(chalk.gray(`${chalk.cyan('--help')} or ${chalk.cyan('-h')} for more info`));
 		} else if (this.isPhase2) {
-			infoBlock += chalk.gray(`Use ${chalk.yellow('arrow keys')} to navigate\n`);
-			infoBlock += chalk.gray(`Press ${chalk.yellow('tab')} to preview\n`);
-			infoBlock += chalk.gray(`Press ${chalk.yellow('enter')} to confirm\n`);
-			infoBlock += chalk.gray(`Keywords:\n`);
-			infoBlock += chalk.gray(`  ${chalk.bold.green('$1')} -- input from previous command\n`);
-			infoBlock += chalk.gray(`  ${chalk.bold.green(':back')} -- go back to previous step\n`);
+			lines.push(chalk.gray(`${chalk.yellow('arrow keys')} to navigate`));
+			lines.push(chalk.gray(`${chalk.yellow('tab')} to preview`));
+			lines.push(chalk.gray(`${chalk.yellow('enter')} to confirm`));
+			lines.push(chalk.gray(`${chalk.bold.green('$1')} -- input from previous command`));
+			lines.push(chalk.gray(`${chalk.bold.green(':back')} -- go back to previous step`));
 		}
 
-		infoBlock += `${chalk.gray(new Array(40).join('-'))}\n`;
+		lines = lines.map(line => {
+			line = `${chalk.gray('┃')}  ${line}`;
+			const length = stripAnsi(line).length;
+			line += new Array(borderWidth - length).join(' ') + chalk.gray('┃');
+			return line;
+		});
 
-		this.jumper.getBlock('infoDiv.info').content(infoBlock);
+		const borderBottom = chalk.gray(`┗${new Array(borderWidth - 1).join('━')}┛`);
+
+		this.jumper.getBlock('infoDiv.info').content(
+			[borderTop, ...lines, borderBottom].map(line => `${line}`).join('\n')
+		);
 	}
 
 	onKeypress(char, key) {
@@ -296,11 +326,14 @@ class PipeBoy {
 	}
 
 	async onTabPhase2(char, key) {
+		const division = this.jumper.getDivision('outputDiv');
+		const block = division.getBlock('output');
+		const selectedRow = this.selectingIdx + division.scrollPosY();
+
 		const cmd = this.rl.line;
 		const str = (() => {
 			if (this.isSelecting) {
-				const block = this.jumper.getBlock('outputDiv.output');
-				return stripAnsi(block.getRow(this.selectingIdx));
+				return stripAnsi(block.getRow(selectedRow));
 			} else {
 				return this.input;
 			}
@@ -315,7 +348,7 @@ class PipeBoy {
 		this.jumper.chain().render();
 		if (this.isSelecting) {
 			this.jumper
-				.jumpTo('outputDiv.output', -1, this.selectingIdx)
+				.jumpTo('outputDiv.output', -1, selectedRow)
 				.appendToChain(`   ${chalk.bold.blue('⬅')}`);
 		}
 		this.jumper.jumpTo('commandDiv.input', -1);
