@@ -21,7 +21,7 @@ class PipeBoy {
 		this.input = input.replace(/\t/g, TAB_FAKER);
 
 		this.onKeypress = this.onKeypress.bind(this);
-		this.onExit = this.onExit.bind(this);
+		this.onEarlyExit = this.onEarlyExit.bind(this);
 
 		this.jumper = null;
 		this.isPhase1 = false;
@@ -31,7 +31,6 @@ class PipeBoy {
 		this.isSelecting = false;
 		this.selectingIdx = -1;
 		this.scrollIdx = 0;
-		this.isDone = false;
 
 		if (this.input) {
 			this.isPhase2 = true;
@@ -43,7 +42,7 @@ class PipeBoy {
 	}
 
 	begin() {
-		process.on('exit', this.onExit);
+		process.on('exit', this.onEarlyExit);
 		readline.emitKeypressEvents(process.stdin, this.rl);
 
 		try {
@@ -246,19 +245,20 @@ class PipeBoy {
 			}
 		})();
 
+		process.removeListener('exit', this.onEarlyExit);
+
 		this.jumper.erase();
 		this.jumper.destroy();
+		this.rl.close();
 
 		command = command.replace('$1', input);
-		const output = await this.exec(command, { cwd: this.cwd });
 
 		console.log(chalk.cyan(`$ ${command}`));
 		console.log();
 		console.log(new Array(process.stdout.columns).join('='));
 		console.log();
-		console.log(output);
 
-		return this.end();
+		return Promise.resolve(command);
 	}
 
 	setInfoBlock() {
@@ -497,20 +497,11 @@ class PipeBoy {
 		});
 	}
 
-	end() {
-		this.isDone = true;
+	onEarlyExit() {
+		this.jumper.erase();
 		this.rl.close();
 
-		return Promise.resolve();
-	}
-
-	onExit() {
-		if (!this.isDone) {
-			this.jumper.erase();
-		}
-
-		this.rl.close();
-		process.exit(0);
+		process.exit(1);
 	}
 }
 

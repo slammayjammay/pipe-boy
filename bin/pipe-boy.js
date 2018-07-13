@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+const { execSync } = require('child_process');
 const minimist = require('minimist');
 const chalk = require('chalk');
 const wrapAnsi = require('wrap-ansi');
@@ -41,18 +42,25 @@ if (args._[0] === 'config') {
 	showHelpScreen();
 } else {
 	try {
-		const program = new PipeBoy(process.argv.slice(2).join('\n'));
-
-		program.catch(e => {
-			console.log(e);
-			process.exit(1);
-		});
-
-		program.then(() => {
-			process.exit(0);
-		});
+		new PipeBoy(process.argv.slice(2).join('\n'))
+			.catch(e => {
+				console.log(e);
+				process.exit(1);
+			})
+			.then(commandToRun => {
+				printFinalCommand(commandToRun);
+			});
 	} catch(e) {
 		console.log(e);
 		process.exit(1);
+	}
+}
+
+function printFinalCommand(commandToRun) {
+	try {
+		console.log(execSync(commandToRun).toString());
+		process.exit(0);
+	} catch (e) {
+		process.exit(e.status);
 	}
 }
