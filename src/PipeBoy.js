@@ -6,7 +6,7 @@ const chalk = require('chalk');
 const ansiEscapes = require('ansi-escapes');
 const sliceAnsi = require('slice-ansi');
 const stripAnsi = require('strip-ansi');
-const TerminalJumper = require('../../terminal-jumper');
+const TerminalJumper = require('terminal-jumper');
 const pager = require('node-pager');
 require('./readline-hack');
 
