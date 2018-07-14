@@ -137,15 +137,16 @@ class PipeBoy {
 		this.jumper.addBlock('commandDiv');
 		this.jumper.addBlock('commandDiv.divider');
 		this.jumper.addBlock('outputDiv.output');
+
+		this.jumper.getBlock('commandDiv.divider').content(
+			new Array(this.jumper.getDivision('outputDiv').width()).join('=')
+		);
 	}
 
 	async phase1() {
 		this.setInfoBlock();
 
 		this.jumper.getBlock('commandDiv.prompt').content(`Command ${chalk.cyan(1)}`);
-		this.jumper.getBlock('commandDiv.divider').content(
-			new Array(this.jumper.getDivision('outputDiv').width()).join('=')
-		);
 
 		this.jumper
 			.chain()
@@ -161,7 +162,7 @@ class PipeBoy {
 					that.rl.removeListener('line', onLine);
 					resolve(line);
 				} else {
-					that.jumper.block('outputDiv.output').content(chalk.red('Please enter a command'));
+					that.jumper.getBlock('outputDiv.output').content(chalk.red('Please enter a command'));
 					that.jumper
 						.chain()
 						.render()
