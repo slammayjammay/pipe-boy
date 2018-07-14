@@ -175,7 +175,7 @@ class PipeBoy {
 			this.cwd = this.parseCwdOnCd(command);
 		}
 
-		const output = await this.exec(command);
+		const [output] = await this.exec(command);
 
 		this.input = output.trim().replace(/\t/g, TAB_FAKER);
 		this.phase1Command = command;
@@ -252,13 +252,14 @@ class PipeBoy {
 		this.rl.close();
 
 		command = command.replace('$1', input);
+		const [output, status] = await this.exec(command, { cwd: this.cwd });
 
 		console.log(chalk.cyan(`$ ${command}`));
 		console.log();
 		console.log(new Array(process.stdout.columns).join('='));
 		console.log();
 
-		return Promise.resolve(command);
+		return Promise.resolve([output, status]);
 	}
 
 	setInfoBlock() {
@@ -316,6 +317,8 @@ class PipeBoy {
 			return;
 		}
 
+		this.jumper.chain().render().jumpTo('commandDiv.input', this.rl.cursor).execute();
+
 		if (this.isPhase1) {
 			await this.onTabPhase1(char, key);
 		} else if (this.isPhase2) {
@@ -324,7 +327,7 @@ class PipeBoy {
 	}
 
 	async onTabPhase1(char, key) {
-		const output = await this.exec(this.rl.line);
+		const [output] = await this.exec(this.rl.line);
 
 		const division = this.jumper.getDivision('outputDiv');
 		const block = division.getBlock('output');
@@ -362,7 +365,7 @@ class PipeBoy {
 		})();
 
 		const command = this.rl.line.replace('$1', str);
-		const output = await this.exec(command, { cwd: this.cwd });
+		const [output] = await this.exec(command, { cwd: this.cwd });
 
 		this.jumper.erase();
 		await pager(output);
@@ -492,7 +495,7 @@ class PipeBoy {
 
 			exec(command, options, (error, stdout, stderr) => {
 				const output = stderr ? chalk.red(stderr) : stdout;
-				resolve(output);
+				resolve([output, (error || stderr) ? 1 : 0]);
 			});
 		});
 	}
