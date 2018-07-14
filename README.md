@@ -10,15 +10,15 @@ $ npm install --global pipe-boy
 ## Demos
 Example of previewing output from several different commands
 
-![phase 1](https://user-images.githubusercontent.com/11801881/41616056-cc18c1d6-73b1-11e8-8756-497cc132e280.gif)
+![phase 1](https://user-images.githubusercontent.com/11801881/42720421-9181add4-86db-11e8-9371-4bf60fa808eb.gif)
 
 Example of chaining two commands together
 
-![phase 2](https://user-images.githubusercontent.com/11801881/41616057-cd825208-73b1-11e8-8f0a-383af3904cbc.gif)
+![phase 2](https://user-images.githubusercontent.com/11801881/42720426-963bfc08-86db-11e8-9669-d5e4cfb2a2c5.gif)
 
 Example of setting up custom functions
 
-![custom functions](https://user-images.githubusercontent.com/11801881/41616059-cef2df04-73b1-11e8-818d-ff5a7eb84bd2.gif)
+![custom functions](https://user-images.githubusercontent.com/11801881/42720423-93e07466-86db-11e8-8449-3f4a405064e1.gif)
 
 ## Usage
 ```
