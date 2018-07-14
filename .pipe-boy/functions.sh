@@ -1,6 +1,6 @@
 # Enter any custom functions here
 
-# Ex: alias `pipeboy` as `pipe-boy`
+# Ex: alias `pipe-boy --help` as `help`
 function help() {
 	pipe-boy --help
 }
