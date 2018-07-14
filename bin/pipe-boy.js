@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
+const { join } = require('path');
 const minimist = require('minimist');
 const chalk = require('chalk');
 const wrapAnsi = require('wrap-ansi');
 const ConfigManager = require('../src/ConfigManager');
 const PipeBoy = require('../src/PipeBoy');
 const getTermWidth = require('../src/get-term-width');
+const packageJson = require(join(__dirname, '../package.json'));
 
 const helpScreen =
 `${chalk.green('pipe-boy')}
@@ -23,6 +25,10 @@ ${chalk.bold('COLORS')}
 ${chalk.bold('CUSTOM FUNCTIONS')}
     One drawback of this tool is that any custom aliases or functions on your terminal are lost when executing commands. One possible solution to this is to redefine any custom functions inside the config file ${chalk.bold('{{HOME}}/.pipe-boy/functions.sh')}. Every time a command is run with this tool, these definitions will be prepended to the command string.
     Note: setting ${chalk.cyan('alias')}-es will not work, as they only take effect in interactive shells (all commands are run inside Node's ${chalk.cyan('child_process')}, which is not interactive).
+
+${chalk.bold('OPTIONS')}
+    -h, --help       Print this help screen.
+    -v, --version    Print the version of this package.
 `;
 
 function showHelpScreen() {
@@ -31,7 +37,8 @@ function showHelpScreen() {
 
 const args = minimist(process.argv.slice(2), {
 	alias: {
-		h: 'help'
+		h: 'help',
+		v: 'version'
 	}
 });
 
@@ -39,6 +46,8 @@ if (args._[0] === 'config') {
 	new ConfigManager(args);
 } else if (args.help || args._[0] === 'help') {
 	showHelpScreen();
+} else if (args.version) {
+	console.log(packageJson.version);
 } else {
 	try {
 		new PipeBoy(process.argv.slice(2).join('\n'))
