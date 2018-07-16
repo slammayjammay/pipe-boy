@@ -1,6 +1,6 @@
 {
   "name": "pipe-boy",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Interactive CLI to pass output from one command as input to another",
   "bin": "bin/pipe-boy.js",
   "engines": {
