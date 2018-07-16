@@ -7,6 +7,7 @@
  */
 
 const readline = require('readline');
+const ansiEscapes = require('ansi-escapes');
 
 /**
  * copy pasted from https://github.com/nodejs/node/blob/master/lib/readline.js#L271-L309
@@ -32,7 +33,18 @@ readline.Interface.prototype._refreshLine = function() {
   readline.cursorTo(this.output, 0);
   // erase data
   // readline.clearScreenDown(this.output); // <-- Substitute this line
-	readline.clearLine(this.output, 1)     // <-- with this one.
+	// with these
+	let writeString = '';
+	let i;
+	for (i = 0; i < (this.prevRows || 0) + 1; i++) {
+		writeString += ansiEscapes.eraseEndLine;
+		writeString += ansiEscapes.cursorDown(1);
+		writeString += ansiEscapes.cursorLeft;
+	}
+	if (i >= 0) {
+		writeString += ansiEscapes.cursorUp(i);
+	}
+	process.stdout.write(writeString);
 
   // Write the prompt and the current buffer content.
   this._writeToOutput(line);

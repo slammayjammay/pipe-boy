@@ -31,6 +31,7 @@ class PipeBoy {
 		this.isSelecting = false;
 		this.selectingIdx = -1;
 		this.scrollIdx = 0;
+		this._lastRlPrevRows = null;
 
 		if (this.input) {
 			this.isPhase2 = true;
@@ -94,14 +95,15 @@ class PipeBoy {
 			id: 'commandDiv',
 			left: 0,
 			top: headerDiv.id,
-			width: 0.5
+			width: 1,
+			wrapOnWord: false
 		};
 
 		const outputDiv = {
 			id: 'outputDiv',
 			left: 0,
 			top: commandDiv.id,
-			width: 1,
+			width: 0.8,
 			overflowX: 'wrap'
 		};
 
@@ -147,11 +149,12 @@ class PipeBoy {
 		this.setInfoBlock();
 
 		this.jumper.getBlock('commandDiv.prompt').content(`Command ${chalk.cyan(1)}`);
+		const inputBlock = this.jumper.getBlock('commandDiv.input');
 
 		this.jumper
 			.chain()
 			.render()
-			.jumpTo('commandDiv.input', -1)
+			.jumpTo('commandDiv.input', -1, inputBlock.height() - 1)
 			.execute();
 
 		const command = await new Promise(resolve => {
@@ -226,6 +229,9 @@ class PipeBoy {
 			this.jumper.getBlock('commandDiv.input').content(this.phase1Command);
 			this.rl.line = this.phase1Command;
 			this.rl.cursor = this.rl.line.length;
+			const { rows, cols } = this.rl._getCursorPos();
+			this.rl.prevRows = rows;
+			process.stdout.write(ansiEscapes.cursorTo(cols, rows));
 			this.isPhase1 = true;
 			this.isPhase2 = false;
 			this.cwd = null;
@@ -306,6 +312,15 @@ class PipeBoy {
 			this.onArrow(char, key);
 		} else if (key.name !== 'return') {
 			this.jumper.getBlock('commandDiv.input').content(this.rl.line);
+			if (this.rl.prevRows !== undefined && this.rl.prevRows !== this._lastRlPrevRows) {
+				this._lastRlPrevRows = this.rl.prevRows;
+
+				this.jumper
+					.chain()
+					.render()
+					.jumpTo('commandDiv.input', -1, this.rl.prevRows)
+					.execute();
+			}
 		}
 	}
 
