@@ -326,8 +326,11 @@ class PipeBoy {
 
 	async onTab(char, key) {
 		this.rl.line = this.rl.line.replace(/\t/g, '');
-		this.rl.cursor -= 1;
 		this.jumper.getBlock('commandDiv.input').content(this.rl.line);
+
+		if (!key.shift) {
+			this.rl.cursor -= 1;
+		}
 
 		if (this.rl.line.trim() === '') {
 			return;
