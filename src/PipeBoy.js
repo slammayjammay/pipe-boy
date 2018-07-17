@@ -94,7 +94,7 @@ class PipeBoy {
 		const commandDiv = {
 			id: 'commandDiv',
 			left: 0,
-			top: headerDiv.id,
+			top: infoDiv.id,
 			width: 1,
 			wrapOnWord: false
 		};
