@@ -395,7 +395,7 @@ class PipeBoy {
 				.jumpTo('outputDiv.output', -1, selectedRow)
 				.appendToChain(`   ${chalk.bold.blue('⬅')}`);
 		}
-		this.jumper.jumpTo('commandDiv.input', -1);
+		this.jumper.jumpTo('commandDiv.input', this.rl.cursor);
 		this.jumper.execute();
 
 		return Promise.resolve();
@@ -408,28 +408,30 @@ class PipeBoy {
 		this.isSelecting = true;
 
 		const division = this.jumper.getDivision('outputDiv');
-
 		const outputDivHeight = division.height() - 1;
 		const outputBlockHeight = division.getBlock('output').height() - 1;
 		const isOutputOverflowing = outputBlockHeight > outputDivHeight;
 
-		if (isOutputOverflowing) {
-			if (key.name === 'down' && this.selectingIdx === outputDivHeight) {
-				this.scrollOutputDown();
-				return;
-			} else if (key.name === 'up' && this.selectingIdx === 0) {
-				this.scrollOutputUp();
-				return;
-			}
-		}
-
-		let writeString = '';
+		this.jumper.chain();
 
 		// erase previous indicator
 		if (this.selectingIdx >= 0) {
 			const row = this.selectingIdx + division.scrollPosY();
-			writeString += this.jumper.jumpToString('outputDiv.output', -1, row);
-			writeString += '    ';
+			this.jumper
+				.appendToChain(this.jumper.jumpToString('outputDiv.output', -1, row))
+				.appendToChain('    ');
+		}
+
+		if (isOutputOverflowing) {
+			if (key.name === 'down' && this.selectingIdx === outputDivHeight) {
+				this.jumper.execute();
+				this.scrollOutputDown();
+				return;
+			} else if (key.name === 'up' && this.selectingIdx === 0 && this.scrollIdx > 0) {
+				this.jumper.execute();
+				this.scrollOutputUp();
+				return;
+			}
 		}
 
 		this.selectingIdx += key.name === 'up' ? -1 : 1;
@@ -437,8 +439,8 @@ class PipeBoy {
 		// move back up to command prompt
 		if (this.selectingIdx < 0 && this.scrollIdx === 0) {
 			this.isSelecting = false;
-			writeString += this.jumper.jumpToString('commandDiv.input', -1);
-			process.stdout.write(writeString);
+			this.jumper.appendToChain(this.jumper.jumpToString('commandDiv.input', this.rl.cursor))
+			this.jumper.execute();
 			return;
 		}
 
@@ -446,11 +448,11 @@ class PipeBoy {
 			this.selectingIdx = outputBlockHeight;
 		}
 
-		writeString += division.jumpToString('output', -1, this.selectingIdx + division.scrollPosY());
-		writeString += `   ${chalk.bold.blue('⬅')}`;
-		writeString += this.jumper.jumpToString('commandDiv.input', -1);
-
-		process.stdout.write(writeString);
+		this.jumper
+			.appendToChain(division.jumpToString('output', -1, this.selectingIdx + division.scrollPosY()))
+			.appendToChain(`   ${chalk.bold.blue('⬅')}`)
+			.appendToChain(this.jumper.jumpToString('commandDiv.input', this.rl.cursor))
+			.execute();
 	}
 
 	scrollOutputDown() {
@@ -467,25 +469,25 @@ class PipeBoy {
 			.render()
 			.jumpTo('outputDiv', lastRowWidth, -1)
 			.appendToChain(`   ${chalk.bold.blue('⬅')}`)
-			.jumpTo('commandDiv.input')
+			.jumpTo('commandDiv.input', this.rl.cursor)
 			.execute();
 	}
 
 	scrollOutputUp() {
-		const division = this.jumper.getDivision('outputDiv');
-		const block = this.jumper.getBlock('outputDiv.output');
-
 		if (this.scrollIdx === 0) {
 			return;
 		}
 		this.scrollIdx -= 1;
+
+		const division = this.jumper.getDivision('outputDiv');
+		const block = this.jumper.getBlock('outputDiv.output');
 
 		this.jumper.chain()
 			.scrollUp('outputDiv', 1)
 			.render()
 			.jumpTo('outputDiv.output', -1, division.scrollPosY())
 			.appendToChain(`   ${chalk.bold.blue('⬅')}`)
-			.jumpTo('commandDiv.input')
+			.jumpTo('commandDiv.input', this.rl.cursor)
 			.execute();
 	}
 
