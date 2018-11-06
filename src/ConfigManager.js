@@ -28,7 +28,8 @@ ${chalk.bold('EXAMPLES')}
     $ pipe-boy config path                  # print path to config file
 
 ${chalk.bold('CONFIG KEYS')}
-    ${chalk.bold('FORCE_COLOR')} -- sets the ${chalk.cyan('$FORCE_COLOR')} environment variable when executing commands
+    ${chalk.green('FORCE_COLOR')} -- sets the ${chalk.cyan('$FORCE_COLOR')} environment variable when executing commands
+    ${chalk.green('setCwdOnCd')} -- attempts to detect when ${chalk.cyan('cd')} is present and sets the working directory for sub commands (used during phase 2)
 `;
 
 class ConfigManager {

@@ -1,6 +1,6 @@
 const { homedir } = require('os');
 const { readFileSync } = require('fs');
-const { exec } = require('child_process');
+const { spawnSync } = require('child_process');
 const readline = require('readline');
 const chalk = require('chalk');
 const ansiEscapes = require('ansi-escapes');
@@ -13,6 +13,7 @@ require('./readline-hack');
 const CONFIG_DIR_PATH = `${homedir()}/.pipe-boy/`;
 const TAB_NUM_SPACES = 8;
 const TAB_FAKER = new Array(TAB_NUM_SPACES).join(' ');
+const INTERACTIVE_FLAG_REGEX = /#\s*:[iI]\b|interactive\b/;
 
 const DEBUG = false;
 
@@ -46,13 +47,19 @@ class PipeBoy {
 		process.on('exit', this.onEarlyExit);
 		readline.emitKeypressEvents(process.stdin, this.rl);
 
+		// try to require config file, otherwise set as empty object
 		try {
 			this.config = require(`${CONFIG_DIR_PATH}/config.json`);
 		} catch (e) {
 			this.config = {};
 		}
 
-		this.customFunctions = this.readCustomFunctions();
+		// try to read custom functions, otherwise set as empty string
+		try {
+			this.customFunctions = readFileSync(`${CONFIG_DIR_PATH}/functions.sh`).toString();
+		} catch(e) {
+			this.customFunctions = '';
+		}
 
 		this.rl = readline.createInterface({
 			input: process.stdin,
@@ -70,10 +77,6 @@ class PipeBoy {
 		} else if (this.isPhase2) {
 			return this.phase2();
 		}
-	}
-
-	readCustomFunctions() {
-		return readFileSync(`${CONFIG_DIR_PATH}/functions.sh`).toString();
 	}
 
 	_createTerminalJumper() {
@@ -279,16 +282,21 @@ class PipeBoy {
 
 		let lines = [];
 
+		const previewInfo = chalk.gray(`${chalk.yellow('tab')} or ${chalk.yellow('shift+tab')} to preview`);
+		const interactiveInfo = chalk.gray(`${chalk.green(':i, :I')} -- interactive flag`);
+
 		if (this.isPhase1) {
-			lines.push(chalk.gray(`${chalk.yellow('tab')} or ${chalk.yellow('shift+tab')} to preview`));
+			lines.push(previewInfo);
 			lines.push(chalk.gray(`${chalk.yellow('enter')} to confirm`));
+			lines.push(interactiveInfo);
 			lines.push(chalk.gray(`${chalk.cyan('--help')} or ${chalk.cyan('-h')} for more info`));
 		} else if (this.isPhase2) {
+			lines.push(previewInfo);
 			lines.push(chalk.gray(`${chalk.yellow('arrow keys')} to navigate`));
-			lines.push(chalk.gray(`${chalk.yellow('tab')} to preview`));
 			lines.push(chalk.gray(`${chalk.yellow('enter')} to confirm`));
-			lines.push(chalk.gray(`${chalk.bold.green('$1')} -- input from previous command`));
 			lines.push(chalk.gray(`${chalk.bold.green(':back')} -- go back to previous step`));
+			lines.push(chalk.gray(`${chalk.bold.green('$1')} -- input from previous command`));
+			lines.push(interactiveInfo);
 		}
 
 		lines = lines.map(line => {
@@ -386,8 +394,10 @@ class PipeBoy {
 		const command = this.rl.line.replace('$1', str);
 		const [output] = await this.exec(command, { cwd: this.cwd });
 
-		this.jumper.erase();
-		await pager(output);
+		if (output) {
+			this.jumper.erase();
+			await pager(output);
+		}
 
 		this.jumper.chain().render();
 		if (this.isSelecting) {
@@ -504,20 +514,37 @@ class PipeBoy {
 		}
 	}
 
-	exec(command, options = {}) {
+	exec(commandString, options = {}) {
 		return new Promise(resolve => {
-			if (this.customFunctions) {
-				command = this.customFunctions + command;
+			const isInteractive = INTERACTIVE_FLAG_REGEX.exec(commandString);
+
+			// deep clone options with default values
+			options = Object.assign({}, {
+				shell: true,
+				stdio: isInteractive ? 'inherit' : null,
+				env: Object.assign({}, process.env, {
+					'FORCE_COLOR': this.config.FORCE_COLOR
+				}, options.env)
+			}, options);
+
+			// massage command input + custom functions to work with child_process's
+			// spawn function. the first argument to spawn must be a command, but we
+			// want to "load" the custom functions first so that they can run
+			// properly.
+			const spawnCommand = 'if';
+			const prepend = 'true; then :; fi;';
+			const fullCommand = `${prepend}${this.customFunctions}\n${commandString}`;
+
+			const child = spawnSync(spawnCommand, [fullCommand], options);
+
+			if (!child.stdout && !child.stderr) {
+				return resolve(['', 0]);
 			}
 
-			options.env = Object.assign({}, process.env, {
-				'FORCE_COLOR': this.config.FORCE_COLOR
-			}, options.env);
+			const [stderr, stdout] = [child.stderr.toString(), child.stdout.toString()];
+			const output = stderr ? chalk.red(stderr) : stdout;
 
-			exec(command, options, (error, stdout, stderr) => {
-				const output = stderr ? chalk.red(stderr) : stdout;
-				resolve([output, (error || stderr) ? 1 : 0]);
-			});
+			resolve([output, stderr ? 1 : 0]);
 		});
 	}
 
