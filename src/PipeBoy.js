@@ -261,7 +261,14 @@ class PipeBoy {
 		command = command.replace('$1', input);
 		const [output, status] = await this.exec(command, { cwd: this.cwd });
 
-		console.log(chalk.cyan(`$ ${command}`));
+
+		let commandThatRan = '$ ';
+		if (this.cwd) {
+			commandThatRan += `cd "${this.cwd}" && `;
+		}
+		commandThatRan += command;
+
+		console.log(chalk.cyan(commandThatRan));
 		console.log();
 		console.log(new Array(process.stdout.columns).join('='));
 		console.log();
