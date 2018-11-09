@@ -7,7 +7,7 @@ const chalk = require('chalk');
 const ansiEscapes = require('ansi-escapes');
 const wrapAnsi = require('wrap-ansi');
 const stripAnsi = require('strip-ansi');
-const TerminalJumper = require('terminal-jumper');
+const TerminalJumper = require('../../terminal-jumper');
 const pager = require('node-pager');
 const getHelpString = require('./get-help-string');
 const getControlsString = require('./get-controls-string');
@@ -118,18 +118,26 @@ class PipeBoy {
 			left: 0,
 			top: commandDiv.id,
 			width: 0.8,
-			overflowX: 'wrap'
+			overflowX: 'scroll'
+		};
+
+		const indicatorEraseDiv = {
+			id: 'indicatorEraseDiv',
+			left: outputDiv.id,
+			top: 0,
+			width: 0.2,
+			height: 'full'
 		};
 
 		const debugDiv = {
 			id: 'debugger',
 			width: 0.3,
 			left: 0.7,
-			top: 0.5
+			top: 0
 		};
 
 		return new TerminalJumper({
-			divisions: [headerDiv, phaseDiv, infoDiv, commandDiv, outputDiv],
+			divisions: [headerDiv, phaseDiv, infoDiv, commandDiv, outputDiv, indicatorEraseDiv],
 			debug: DEBUG ? debugDiv : false
 		});
 	}
@@ -146,9 +154,8 @@ class PipeBoy {
 
 		this.jumper.addBlock('infoDiv.info', infoText);
 		this.jumper.addBlock('phaseDiv.phase');
-		this.jumper.addBlock('commandDiv');
 		this.jumper.addBlock('commandDiv.input');
-		this.jumper.addBlock('commandDiv');
+		this.jumper.addBlock('commandDiv.empty');
 		this.jumper.addBlock('commandDiv.divider');
 		this.jumper.addBlock('outputDiv.output');
 
@@ -224,7 +231,7 @@ class PipeBoy {
 
 		this.jumper.getBlock('phaseDiv.phase').content('Phase 2');
 		this.jumper.getBlock('commandDiv.input').content(this.rl.line);
-		this.jumper.getBlock('outputDiv.output').content(this.input);
+		this._populateOutputDiv(this.input);
 
 		this.jumper
 			.chain()
@@ -274,6 +281,12 @@ class PipeBoy {
 		return Promise.resolve([output, status]);
 	}
 
+	_populateOutputDiv(output) {
+		const division = this.jumper.getDivision('outputDiv');
+		const content = wrapAnsi(output, division.width() - 3, { trim: false });
+		division.getBlock('output').content(content);
+	}
+
 	onBackCommand() {
 		this.jumper.getBlock('outputDiv.output').content('');
 		this.jumper.getBlock('commandDiv.input').content(this.phase1Command);
@@ -294,14 +307,20 @@ class PipeBoy {
 	onKeypress(char, key) {
 		let promise;
 
+		const isArrowKey = ['up', 'down', 'left', 'right'].includes(key.name);
+
 		if (key.name === 'tab') {
 			promise = this.onTab(char, key);
-		} else if (['up', 'down'].includes(key.name)) {
-			promise = this.onArrow(char, key);
+		} else if (isArrowKey) {
+			if (key.meta && key.shift) {
+				this.onShiftArrow(char, key);
+			} else {
+				this.onArrow(char, key);
+			}
 		} else if (key.name !== 'return') {
-			this.jumper.getBlock('commandDiv.input').content(this.rl.line);
 			if (this.rl.prevRows !== undefined && this.rl.prevRows !== this._lastRlPrevRows) {
 				this._lastRlPrevRows = this.rl.prevRows;
+				this.jumper.getBlock('commandDiv.input').content(this.rl.line);
 
 				this.jumper
 					.chain()
@@ -344,12 +363,12 @@ class PipeBoy {
 		const block = division.getBlock('output');
 		const previousText = block.text;
 
-		block.content(output);
+		this._populateOutputDiv(output);
 
 		if (key.shift || block.height() > division.height()) {
 			this.jumper.erase();
 			await pager(wrapAnsi(output, getTermWidth() - 1, { trim: false }));
-			block.content(previousText);
+			this._populateOutputDiv(previousText);
 		}
 
 		this.jumper
@@ -357,8 +376,6 @@ class PipeBoy {
 			.render()
 			.jumpTo('commandDiv.input', this.rl.cursor)
 			.execute();
-
-		return Promise.resolve();
 	}
 
 	async onTabPhase2(char, key) {
@@ -391,29 +408,52 @@ class PipeBoy {
 		}
 		this.jumper.jumpTo('commandDiv.input', this.rl.cursor);
 		this.jumper.execute();
-
-		return Promise.resolve();
 	}
 
-	onArrow(char, key) {
+	async onShiftArrow(char, key) {
+		if (['up', 'down'].includes(key.name)) {
+			return;
+		}
+
+		let amount;
+
+		if (key.name === 'left') {
+			amount = -1;
+		} else	if (key.name === 'right') {
+			amount = 1;
+		}
+
+		this.jumper.getDivision('outputDiv').scrollRight(amount);
+		this.jumper.chain().render().jumpTo('commandDiv.input', this.rl.cursor).execute();
+	}
+
+	async onArrow(char, key) {
+		if (['left', 'right'].includes(key.name)) {
+			return;
+		}
 		if (!this.isPhase2 || (!this.isSelecting && key.name === 'up')) {
 			return;
 		}
+
 		this.isSelecting = true;
 
 		const division = this.jumper.getDivision('outputDiv');
+		const block = division.getBlock('output');
 		const outputDivHeight = division.height() - 1;
-		const outputBlockHeight = division.getBlock('output').height() - 1;
+		const outputBlockHeight = block.height() - 1;
 		const isOutputOverflowing = outputBlockHeight > outputDivHeight;
 
 		this.jumper.chain();
 
 		// erase previous indicator
 		if (this.selectingIdx >= 0) {
-			const row = this.selectingIdx + division.scrollPosY();
+			const selectedRow = this.selectingIdx + division.scrollPosY();
+			const indicatorXPos = this.getIndicatorXPosition(selectedRow);
+
 			this.jumper
-				.appendToChain(this.jumper.jumpToString('outputDiv.output', -1, row))
-				.appendToChain('    ');
+				.appendToChain(this.jumper.jumpToString('outputDiv.output', indicatorXPos, selectedRow))
+				.appendToChain('    ')
+				.appendToChain(this.jumper.getDivision('indicatorEraseDiv').eraseString());
 		}
 
 		if (isOutputOverflowing) {
@@ -442,11 +482,23 @@ class PipeBoy {
 			this.selectingIdx = outputBlockHeight;
 		}
 
+		const selectedRow = this.selectingIdx + division.scrollPosY();
+		const indicatorXPos = this.getIndicatorXPosition(selectedRow);
+
 		this.jumper
-			.appendToChain(division.jumpToString('output', -1, this.selectingIdx + division.scrollPosY()))
+			.appendToChain(division.jumpToString('output', indicatorXPos, selectedRow))
 			.appendToChain(`   ${chalk.bold.blue('⬅')}`)
 			.appendToChain(this.jumper.jumpToString('commandDiv.input', this.rl.cursor))
 			.execute();
+	}
+
+	getIndicatorXPosition(selectedRow) {
+		const division = this.jumper.getDivision('outputDiv');
+		const block = this.jumper.getBlock('outputDiv.output');
+		const selectedRowWidth = block.getWidthOnRow(selectedRow);
+
+		const position = Math.min(selectedRowWidth, division.width());
+		return position + division.scrollPosX();
 	}
 
 	scrollOutputDown() {
@@ -483,19 +535,6 @@ class PipeBoy {
 			.appendToChain(`   ${chalk.bold.blue('⬅')}`)
 			.jumpTo('commandDiv.input', this.rl.cursor)
 			.execute();
-	}
-
-	render(options = {}) {
-		let writeString = '';
-		writeString += ansiEscapes.cursorHide;
-		writeString += this.jumper.renderString();
-		writeString += ansiEscapes.cursorShow;
-
-		if (options.writeToTerminal) {
-			process.stdout.write(writeString);
-		} else {
-			return writeString;
-		}
 	}
 
 	getOutputForCommand(command, options) {
@@ -543,7 +582,7 @@ class PipeBoy {
 	}
 
 	onEarlyExit() {
-		this.jumper.erase();
+		// this.jumper.erase();
 		this.rl.close();
 
 		process.exit(1);
