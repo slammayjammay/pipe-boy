@@ -349,10 +349,6 @@ class PipeBoy {
 
 		this.jumper.chain().render().jumpTo('commandDiv.input', this.rl.cursor).execute();
 
-		if (this.rl.line.trim() === '') {
-			return;
-		}
-
 		if (this.isPhase1) {
 			return this.onTabPhase1(char, key);
 		} else if (this.isPhase2) {
