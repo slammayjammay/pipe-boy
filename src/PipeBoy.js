@@ -264,16 +264,16 @@ class PipeBoy {
 		this.jumper.destroy();
 		this.rl.close();
 
-		const [output, status] = await this.getOutputForCommand(command, {
-			cwd: this.cwd,
-			input
-		});
+		const [output, status, originalCommand] = await this.getOutputForCommand(
+			command,
+			{ cwd: this.cwd, input }
+		);
 
 		let commandThatRan = '$ ';
 		if (this.cwd) {
 			commandThatRan += `cd "${this.cwd}" && `;
 		}
-		commandThatRan += command;
+		commandThatRan += originalCommand;
 
 		console.log(chalk.cyan(commandThatRan));
 		console.log();
@@ -523,6 +523,9 @@ class PipeBoy {
 		}
 	}
 
+	/**
+	 * @return {Promise<{ output: string, status: number, command: string }>}
+	 */
 	exec(commandString, options = {}) {
 		return new Promise(resolve => {
 			const isInteractive = INTERACTIVE_FLAG_REGEX.exec(commandString);
@@ -561,13 +564,13 @@ class PipeBoy {
 			const child = spawnSync(spawnCommand, [fullCommand], spawnOptions);
 
 			if (!child.stdout && !child.stderr) {
-				return resolve(['', 0]);
+				return resolve(['', 0, commandString]);
 			}
 
 			const [stderr, stdout] = [child.stderr.toString(), child.stdout.toString()];
 			const output = stderr ? chalk.red(stderr) : stdout;
 
-			resolve([output, stderr ? 1 : 0]);
+			resolve([output, stderr ? 1 : 0, commandString]);
 		});
 	}
 
