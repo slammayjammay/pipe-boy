@@ -1,4 +1,5 @@
 {
   "FORCE_COLOR": 1,
-  "setCwdOnCd": true
+  "setCwdOnCd": true,
+  "alwaysEscapeInput": false
 }

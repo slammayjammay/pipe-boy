@@ -1,23 +1,24 @@
 const { homedir } = require('os');
 const { readFileSync } = require('fs');
-const { spawnSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 const readline = require('readline');
-const getTermWidth = require('./get-term-width');
 const chalk = require('chalk');
 const ansiEscapes = require('ansi-escapes');
 const wrapAnsi = require('wrap-ansi');
 const stripAnsi = require('strip-ansi');
-const TerminalJumper = require('../../terminal-jumper');
 const pager = require('node-pager');
-const getHelpString = require('./get-help-string');
-const getControlsString = require('./get-controls-string');
-const getBannerString = require('./get-banner-string');
+const TerminalJumper = require('terminal-jumper');
+const getTermWidth = require('./get-term-width');
+const bannerScreen = require('../screens/banner');
+const controlsScreen = require('../screens/controls');
+const helpScreen = require('../screens/help');
 require('./readline-hack');
 
 const CONFIG_DIR_PATH = `${homedir()}/.pipe-boy/`;
 const TAB_NUM_SPACES = 8;
 const TAB_FAKER = new Array(TAB_NUM_SPACES).join(' ');
-const INTERACTIVE_FLAG_REGEX = /#\s*:[iI]\b|interactive\b/;
+const INTERACTIVE_FLAG_REGEX = /#.*:([iI]|interactive)\b/;
+const ESCAPE_STRING_REGEX = /#.*:([eE]|escaped)\b/;
 
 const DEBUG = false;
 
@@ -35,7 +36,6 @@ class PipeBoy {
 		this.cwd = null;
 		this.isSelecting = false;
 		this.selectingIdx = -1;
-		this.scrollIdx = 0;
 		this._lastRlPrevRows = null;
 
 		if (this.input) {
@@ -117,7 +117,7 @@ class PipeBoy {
 			id: 'outputDiv',
 			left: 0,
 			top: commandDiv.id,
-			width: 0.8,
+			width: 0.9,
 			overflowX: 'scroll'
 		};
 
@@ -125,7 +125,7 @@ class PipeBoy {
 			id: 'indicatorEraseDiv',
 			left: outputDiv.id,
 			top: 0,
-			width: 0.2,
+			width: 0.1,
 			height: 'full'
 		};
 
@@ -143,7 +143,7 @@ class PipeBoy {
 	}
 
 	_createJumperTemplate() {
-		this.jumper.addBlock(`headerDiv.header`, chalk.green(getBannerString()));
+		this.jumper.addBlock(`headerDiv.header`, chalk.green(bannerScreen()));
 		this.jumper.addBlock(`headerDiv`);
 		const headerWidth = this.jumper.getDivision('headerDiv').width();
 
@@ -264,8 +264,10 @@ class PipeBoy {
 		this.jumper.destroy();
 		this.rl.close();
 
-		command = command.replace('$1', input);
-		const [output, status] = await this.getOutputForCommand(command, { cwd: this.cwd });
+		const [output, status] = await this.getOutputForCommand(command, {
+			cwd: this.cwd,
+			input
+		});
 
 		let commandThatRan = '$ ';
 		if (this.cwd) {
@@ -285,6 +287,9 @@ class PipeBoy {
 		const division = this.jumper.getDivision('outputDiv');
 		const content = wrapAnsi(output, division.width() - 3, { trim: false });
 		division.getBlock('output').content(content);
+
+		division.scrollX(0);
+		division.scrollY(0);
 	}
 
 	onBackCommand() {
@@ -300,7 +305,6 @@ class PipeBoy {
 		this.cwd = null;
 		this.isSelecting = false;
 		this.selectingIdx = -1;
-		this.scrollIdx = 0;
 		return this.phase1();
 	}
 
@@ -313,9 +317,9 @@ class PipeBoy {
 			promise = this.onTab(char, key);
 		} else if (isArrowKey) {
 			if (key.meta && key.shift) {
-				this.onShiftArrow(char, key);
+				promise = this.onMetaShiftArrow(char, key);
 			} else {
-				this.onArrow(char, key);
+				promise = this.onArrow(char, key);
 			}
 		} else if (key.name !== 'return') {
 			if (this.rl.prevRows !== undefined && this.rl.prevRows !== this._lastRlPrevRows) {
@@ -359,16 +363,11 @@ class PipeBoy {
 	async onTabPhase1(char, key) {
 		const [output] = await this.getOutputForCommand(this.rl.line);
 
-		const division = this.jumper.getDivision('outputDiv');
-		const block = division.getBlock('output');
-		const previousText = block.text;
-
-		this._populateOutputDiv(output);
-
-		if (key.shift || block.height() > division.height()) {
+		if (key.shift) {
 			this.jumper.erase();
-			await pager(wrapAnsi(output, getTermWidth() - 1, { trim: false }));
-			this._populateOutputDiv(previousText);
+			await pager(wrapAnsi(output, getTermWidth(), { trim: false }));
+		} else {
+			this._populateOutputDiv(output);
 		}
 
 		this.jumper
@@ -383,8 +382,7 @@ class PipeBoy {
 		const block = division.getBlock('output');
 		const selectedRow = this.selectingIdx + division.scrollPosY();
 
-		const cmd = this.rl.line;
-		const str = (() => {
+		const input = (() => {
 			if (this.isSelecting) {
 				return stripAnsi(block.getRow(selectedRow));
 			} else {
@@ -392,8 +390,10 @@ class PipeBoy {
 			}
 		})();
 
-		const command = this.rl.line.replace('$1', str);
-		const [output] = await this.getOutputForCommand(command, { cwd: this.cwd });
+		const [output] = await this.getOutputForCommand(this.rl.line, {
+			cwd: this.cwd,
+			input
+		});
 
 		if (output) {
 			this.jumper.erase();
@@ -401,30 +401,53 @@ class PipeBoy {
 		}
 
 		this.jumper.chain().render();
+
 		if (this.isSelecting) {
 			this.jumper
-				.jumpTo('outputDiv.output', -1, selectedRow)
+				.jumpTo('outputDiv.output', this.getIndicatorXPosition(selectedRow), selectedRow)
 				.appendToChain(`   ${chalk.bold.blue('⬅')}`);
 		}
+
 		this.jumper.jumpTo('commandDiv.input', this.rl.cursor);
 		this.jumper.execute();
 	}
 
-	async onShiftArrow(char, key) {
-		if (['up', 'down'].includes(key.name)) {
-			return;
-		}
-
-		let amount;
+	async onMetaShiftArrow(char, key) {
+		const outputDiv = this.jumper.getDivision('outputDiv');
+		let [amountX, amountY] = [0, 0];
 
 		if (key.name === 'left') {
-			amount = -1;
-		} else	if (key.name === 'right') {
-			amount = 1;
+			amountX = -1;
+		} else if (key.name === 'right') {
+			amountX = 1;
+		} else if (key.name === 'up') {
+			amountY = -1;
+		} else if (key.name === 'down') {
+			amountY = 1;
 		}
 
-		this.jumper.getDivision('outputDiv').scrollRight(amount);
-		this.jumper.chain().render().jumpTo('commandDiv.input', this.rl.cursor).execute();
+		if (key.ctrl) {
+			amountX *= outputDiv.width() / 2;
+			amountY *= outputDiv.height() / 2;
+		}
+
+		outputDiv.scrollRight(amountX);
+		outputDiv.scrollDown(amountY);
+
+		this.jumper.chain().render();
+
+		if (this.isSelecting) {
+			const selectedRow = this.selectingIdx + outputDiv.scrollPosY();
+			const indicatorXPos = this.getIndicatorXPosition(selectedRow);
+
+			this.jumper
+				.appendToChain(this.jumper.getDivision('indicatorEraseDiv').eraseString())
+				.jumpTo('outputDiv.output', indicatorXPos, selectedRow)
+				.appendToChain(`   ${chalk.bold.blue('⬅')}`);
+		}
+
+		this.jumper.jumpTo('commandDiv.input', this.rl.cursor);
+		this.jumper.execute();
 	}
 
 	async onArrow(char, key) {
@@ -436,59 +459,48 @@ class PipeBoy {
 		}
 
 		this.isSelecting = true;
-
-		const division = this.jumper.getDivision('outputDiv');
-		const block = division.getBlock('output');
-		const outputDivHeight = division.height() - 1;
-		const outputBlockHeight = block.height() - 1;
-		const isOutputOverflowing = outputBlockHeight > outputDivHeight;
-
 		this.jumper.chain();
+
+		const outputDiv = this.jumper.getDivision('outputDiv');
 
 		// erase previous indicator
 		if (this.selectingIdx >= 0) {
-			const selectedRow = this.selectingIdx + division.scrollPosY();
+			const selectedRow = this.selectingIdx + outputDiv.scrollPosY();
 			const indicatorXPos = this.getIndicatorXPosition(selectedRow);
 
 			this.jumper
-				.appendToChain(this.jumper.jumpToString('outputDiv.output', indicatorXPos, selectedRow))
+				.jumpTo('outputDiv.output', indicatorXPos, selectedRow)
+				.jumpTo('outputDiv.output', indicatorXPos, selectedRow)
 				.appendToChain('    ')
 				.appendToChain(this.jumper.getDivision('indicatorEraseDiv').eraseString());
 		}
 
-		if (isOutputOverflowing) {
-			if (key.name === 'down' && this.selectingIdx === outputDivHeight) {
-				this.jumper.execute();
-				this.scrollOutputDown();
-				return;
-			} else if (key.name === 'up' && this.selectingIdx === 0 && this.scrollIdx > 0) {
-				this.jumper.execute();
-				this.scrollOutputUp();
-				return;
-			}
-		}
-
 		this.selectingIdx += key.name === 'up' ? -1 : 1;
 
-		// move back up to command prompt
-		if (this.selectingIdx < 0 && this.scrollIdx === 0) {
+		if (this.selectingIdx < 0 && outputDiv.scrollPosY() === 0) {
+			// move back up to command prompt
 			this.isSelecting = false;
-			this.jumper.appendToChain(this.jumper.jumpToString('commandDiv.input', this.rl.cursor))
-			this.jumper.execute();
+			this.jumper.jumpTo('commandDiv.input', this.rl.cursor).execute();
 			return;
+		} else if (this.selectingIdx < 0) {
+			// scroll up
+			this.selectingIdx = 0;
+			outputDiv.scrollUp(1);
+			this.jumper.render();
+		} else if (this.selectingIdx > outputDiv.height() - 1) {
+			// scroll down
+			outputDiv.scrollDown(1);
+			this.jumper.render();
+			this.selectingIdx = outputDiv.height() - 1;
 		}
 
-		if (this.selectingIdx > outputBlockHeight) {
-			this.selectingIdx = outputBlockHeight;
-		}
-
-		const selectedRow = this.selectingIdx + division.scrollPosY();
+		const selectedRow = this.selectingIdx + outputDiv.scrollPosY();
 		const indicatorXPos = this.getIndicatorXPosition(selectedRow);
 
 		this.jumper
-			.appendToChain(division.jumpToString('output', indicatorXPos, selectedRow))
+			.appendToChain(outputDiv.jumpToString('output', indicatorXPos, selectedRow))
 			.appendToChain(`   ${chalk.bold.blue('⬅')}`)
-			.appendToChain(this.jumper.jumpToString('commandDiv.input', this.rl.cursor))
+			.jumpTo('commandDiv.input', this.rl.cursor)
 			.execute();
 	}
 
@@ -501,47 +513,11 @@ class PipeBoy {
 		return position + division.scrollPosX();
 	}
 
-	scrollOutputDown() {
-		const division = this.jumper.getDivision('outputDiv');
-		const block = this.jumper.getBlock('outputDiv.output');
-
-		this.jumper.scrollDown('outputDiv', 1);
-		this.scrollIdx = division.scrollPosY();
-
-		const lastRow = division.height() - 1 + division.scrollPosY();
-		const lastRowWidth = block.getWidthOnRow(lastRow);
-
-		this.jumper.chain()
-			.render()
-			.jumpTo('outputDiv', lastRowWidth, -1)
-			.appendToChain(`   ${chalk.bold.blue('⬅')}`)
-			.jumpTo('commandDiv.input', this.rl.cursor)
-			.execute();
-	}
-
-	scrollOutputUp() {
-		if (this.scrollIdx === 0) {
-			return;
-		}
-		this.scrollIdx -= 1;
-
-		const division = this.jumper.getDivision('outputDiv');
-		const block = this.jumper.getBlock('outputDiv.output');
-
-		this.jumper.chain()
-			.scrollUp('outputDiv', 1)
-			.render()
-			.jumpTo('outputDiv.output', -1, division.scrollPosY())
-			.appendToChain(`   ${chalk.bold.blue('⬅')}`)
-			.jumpTo('commandDiv.input', this.rl.cursor)
-			.execute();
-	}
-
 	getOutputForCommand(command, options) {
 		if ([':h', ':help'].includes(command.trim())) {
-			return [getHelpString(), 0];
+			return [helpScreen(), 0];
 		} else if ([':c', ':controls'].includes(command.trim())) {
-			return [getControlsString(), 0];
+			return [controlsScreen(), 0];
 		} else {
 			return this.exec(command, options);
 		}
@@ -550,15 +526,29 @@ class PipeBoy {
 	exec(commandString, options = {}) {
 		return new Promise(resolve => {
 			const isInteractive = INTERACTIVE_FLAG_REGEX.exec(commandString);
+			const isEscaped = ESCAPE_STRING_REGEX.exec(commandString);
+
+			if (options.input) {
+				let input = options.input;
+
+				if (isEscaped || this.config.alwaysEscapeInput) {
+					// escape string and convert newlines to spaces
+					input = input.replace(/\n/g, ' ').replace(/'/g, "''");
+					input = execSync(`printf "%q" '${input}'`).toString();
+				}
+
+				commandString = commandString.replace('$1', input);
+			}
 
 			// deep clone options with default values
-			options = Object.assign({}, {
+			const spawnOptions = Object.assign({}, {
 				shell: true,
 				stdio: isInteractive ? 'inherit' : null,
+				cwd: options.cwd,
 				env: Object.assign({}, process.env, {
 					'FORCE_COLOR': this.config.FORCE_COLOR
 				}, options.env)
-			}, options);
+			});
 
 			// massage command input + custom functions to work with child_process's
 			// spawn function. the first argument to spawn must be a command, but we
@@ -568,7 +558,7 @@ class PipeBoy {
 			const prepend = 'true; then :; fi;';
 			const fullCommand = `${prepend}${this.customFunctions}\n${commandString}`;
 
-			const child = spawnSync(spawnCommand, [fullCommand], options);
+			const child = spawnSync(spawnCommand, [fullCommand], spawnOptions);
 
 			if (!child.stdout && !child.stderr) {
 				return resolve(['', 0]);
@@ -582,7 +572,7 @@ class PipeBoy {
 	}
 
 	onEarlyExit() {
-		// this.jumper.erase();
+		this.jumper.erase();
 		this.rl.close();
 
 		process.exit(1);
