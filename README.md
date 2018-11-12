@@ -69,6 +69,7 @@ OPTIONS
      -c, --controls   Print controls screen.
      -h, --help       Print this help screen.
      -v, --version    Print the version of this package.
+
 ```
 
 ## Controls screen
@@ -84,9 +85,11 @@ KEYS
      tab -- preview on-screen (if on phase 2, previews inside less)
      shift+tab -- preview inside less
      enter -- confirm/proceed
-     meta+shift+arrow keys -- scroll output horizontally/vertically. Hold alt
-to scroll a half-page
+     shift+arrow keys -- scroll output horizontally/vertically. Hold ctrl to
+scroll a half-page
      up/down arrows keys -- select individual lines out of $1 *
+     escape -- if selecting lines out of $1, resets selection back to entire
+string
 
 COMMANDS
      :h, :help -- print help screen
@@ -130,4 +133,5 @@ commands. Defaults to true.
 directory for sub commands (used during phase 2). Defaults to true.
      alwaysEscapeInput -- escapes input string when populating $1. Defaults to
 false.
+
 ```
