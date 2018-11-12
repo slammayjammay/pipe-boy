@@ -71,6 +71,16 @@ class PipeBoy {
 			prompt: '',
 			historySize: 0
 		});
+
+		// remove all of node's keypress listeners. store in an instance variable
+		// so that we can manually pick and choose if/when these should fire
+		this._nodeKeypressListeners = this.rl.input.listeners('keypress');
+		for (const listener of this._nodeKeypressListeners) {
+			this.rl.input.removeListener('keypress', listener);
+		}
+
+		// add our own listener -- this is where we decide if the event should
+		// propagate
 		this.rl.input.on('keypress', this.onKeypress);
 
 		this.jumper = this._createTerminalJumper();
@@ -310,22 +320,30 @@ class PipeBoy {
 
 	onKeypress(char, key) {
 		let promise;
-
-		const isArrowKey = ['up', 'down', 'left', 'right'].includes(key.name);
+		let shouldPropagate = true;
 
 		if (key.name === 'tab') {
 			promise = this.onTab(char, key);
-		} else if (isArrowKey) {
-			if (key.meta && key.shift) {
-				promise = this.onMetaShiftArrow(char, key);
+			shouldPropagate = false;
+		} else if (['up', 'down', 'left', 'right'].includes(key.name)) {
+			if (key.shift) {
+				promise = this.onShiftArrow(char, key);
+				shouldPropagate = false;
 			} else {
 				promise = this.onArrow(char, key);
 			}
+		} else if (key.name === 'escape' && this.isSelecting) {
+			this.isSelecting = false;
+			this.selectingIdx = -1;
+			this.jumper.chain()
+				.appendToChain(this.jumper.getDivision('outputDiv').renderString())
+				.appendToChain(this.jumper.getDivision('indicatorEraseDiv').eraseString())
+				.jumpTo('commandDiv.input', this.rl.cursor)
+				.execute();
 		} else if (key.name !== 'return') {
 			if (this.rl.prevRows !== undefined && this.rl.prevRows !== this._lastRlPrevRows) {
 				this._lastRlPrevRows = this.rl.prevRows;
 				this.jumper.getBlock('commandDiv.input').content(this.rl.line);
-
 				this.jumper
 					.chain()
 					.render()
@@ -334,19 +352,18 @@ class PipeBoy {
 			}
 		}
 
+		if (shouldPropagate) {
+			this._nodeKeypressListeners.forEach(callback => callback(char, key));
+		}
+
 		if (promise) {
 			promise.catch(e => console.log(e));
+			return promise;
 		}
 	}
 
 	onTab(char, key) {
-		this.rl.line = this.rl.line.replace(/\t/g, '');
 		this.jumper.getBlock('commandDiv.input').content(this.rl.line);
-
-		if (!key.shift) {
-			this.rl.cursor -= 1;
-		}
-
 		this.jumper.chain().render().jumpTo('commandDiv.input', this.rl.cursor).execute();
 
 		if (this.isPhase1) {
@@ -408,7 +425,7 @@ class PipeBoy {
 		this.jumper.execute();
 	}
 
-	async onMetaShiftArrow(char, key) {
+	async onShiftArrow(char, key) {
 		const outputDiv = this.jumper.getDivision('outputDiv');
 		let [amountX, amountY] = [0, 0];
 
@@ -423,8 +440,8 @@ class PipeBoy {
 		}
 
 		if (key.ctrl) {
-			amountX *= outputDiv.width() / 2;
-			amountY *= outputDiv.height() / 2;
+			amountX *= ~~(outputDiv.width() / 2);
+			amountY *= ~~(outputDiv.height() / 2);
 		}
 
 		outputDiv.scrollRight(amountX);

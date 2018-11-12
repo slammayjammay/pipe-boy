@@ -8,8 +8,9 @@ ${chalk.yellow('KEYS')}
     ${chalk.yellow('tab')} ${chalk.gray('-- preview on-screen')} ${chalk.gray('(if on phase 2, previews inside')} ${chalk.cyan('less')}${chalk.gray(')')}
     ${chalk.yellow('shift+tab')} ${chalk.gray('-- preview inside')} ${chalk.cyan('less')}
     ${chalk.yellow('enter')} ${chalk.gray('-- confirm/proceed')}
-    ${chalk.yellow('meta+shift+arrow keys')} ${chalk.gray('-- scroll output horizontally/vertically. Hold')} ${chalk.yellow('alt')} ${chalk.gray('to scroll a half-page')}
+    ${chalk.yellow('shift+arrow keys')} ${chalk.gray('-- scroll output horizontally/vertically. Hold')} ${chalk.yellow('ctrl')} ${chalk.gray('to scroll a half-page')}
     ${chalk.yellow('up/down arrows keys')} ${chalk.gray('-- select individual lines out of')} ${chalk.green('$1')} ${chalk.bold('*')}
+    ${chalk.yellow('escape')} ${chalk.gray('-- if selecting lines out of')} ${chalk.green('$1')}${chalk.gray(', resets selection back to entire string')}
 
 ${chalk.cyan('COMMANDS')}
     ${chalk.cyan(':h')}${chalk.gray(',')} ${chalk.cyan(':help')} ${chalk.gray('-- print help screen')}
