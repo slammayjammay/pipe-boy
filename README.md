@@ -75,12 +75,6 @@ OPTIONS
 ## Controls screen
 ```
 $ pipe-boy --controls
- ______ __               ______
-|   __ \__|.-----.-----.|   __ \.-----.--.--.
-|    __/  ||  _  |  -__||   __ <|  _  |  |  |
-|___|  |__||   __|_____||______/|_____|___  |
-           |__|                       |_____|
-
 KEYS
      tab -- preview on-screen (if on phase 2, previews inside less)
      shift+tab -- preview inside less

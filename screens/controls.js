@@ -1,10 +1,7 @@
 const chalk = require('chalk');
-const bannerScreen = require('./banner');
 
 const controlsScreen =
-`${chalk.green(bannerScreen())}
-
-${chalk.yellow('KEYS')}
+`${chalk.yellow('KEYS')}
     ${chalk.yellow('tab')} ${chalk.gray('-- preview on-screen')} ${chalk.gray('(if on phase 2, previews inside')} ${chalk.cyan('less')}${chalk.gray(')')}
     ${chalk.yellow('shift+tab')} ${chalk.gray('-- preview inside')} ${chalk.cyan('less')}
     ${chalk.yellow('enter')} ${chalk.gray('-- confirm/proceed')}
