@@ -17,8 +17,8 @@ require('./readline-hack');
 const CONFIG_DIR_PATH = `${homedir()}/.pipe-boy/`;
 const TAB_NUM_SPACES = 8;
 const TAB_FAKER = new Array(TAB_NUM_SPACES).join(' ');
-const INTERACTIVE_FLAG_REGEX = /#.*:([iI]|interactive)\b/;
 const ESCAPE_STRING_REGEX = /#.*:([eE]|escaped)\b/;
+const INTERACTIVE_FLAG_REGEX = /#.*:([iI]|interactive)\b/;
 
 const DEBUG = false;
 
@@ -524,8 +524,8 @@ class PipeBoy {
 	 */
 	exec(commandString, options = {}) {
 		return new Promise(resolve => {
-			const isInteractive = INTERACTIVE_FLAG_REGEX.exec(commandString);
 			const isEscaped = ESCAPE_STRING_REGEX.exec(commandString);
+			const isInteractive = INTERACTIVE_FLAG_REGEX.exec(commandString);
 
 			if (options.input) {
 				let input = options.input;
