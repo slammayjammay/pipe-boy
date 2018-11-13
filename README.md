@@ -20,6 +20,10 @@ Example of setting up custom functions
 
 ![custom functions](https://user-images.githubusercontent.com/11801881/42720423-93e07466-86db-11e8-8449-3f4a405064e1.gif)
 
+Example of running command (vim) inheriting terminal stdio
+
+![vim](https://user-images.githubusercontent.com/11801881/48382554-70fe5880-e696-11e8-9175-961ce933093d.gif)
+
 ## Help screen
 ```
 $ pipe-boy --help
