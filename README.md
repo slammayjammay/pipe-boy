@@ -80,14 +80,15 @@ OPTIONS
 ```
 $ pipe-boy --controls
 KEYS
-     tab -- preview on-screen (if on phase 2, previews inside less)
-     shift+tab -- preview inside less
-     enter -- confirm/proceed
-     shift+arrow keys -- scroll output horizontally/vertically. Hold ctrl to
+     ENTER -- confirm/proceed
+     TAB -- preview on-screen (if on phase 2, previews inside less)
+     SHIFT+tab -- preview inside less
+     ↑/↓ (up/down) -- select individual lines out of $1 *
+     SHIFT+↑/↓ (up/down) -- scroll output horizontally/vertically. Hold ctrl to
 scroll a half-page
-     up/down arrows keys -- select individual lines out of $1 *
-     escape -- if selecting lines out of $1, resets selection back to entire
-string
+     ESC cancel individual line selection *
+     CTRL+r refresh/redraw
+     CTRL+e erase and reset any input and output (does not change phases)
 
 COMMANDS
      :h, :help -- print help screen
