@@ -2,12 +2,14 @@ const chalk = require('chalk');
 
 const controlsScreen =
 `${chalk.yellow('KEYS')}
-    ${chalk.yellow('tab')} ${chalk.gray('-- preview on-screen')} ${chalk.gray('(if on phase 2, previews inside')} ${chalk.cyan('less')}${chalk.gray(')')}
-    ${chalk.yellow('shift+tab')} ${chalk.gray('-- preview inside')} ${chalk.cyan('less')}
-    ${chalk.yellow('enter')} ${chalk.gray('-- confirm/proceed')}
-    ${chalk.yellow('shift+arrow keys')} ${chalk.gray('-- scroll output horizontally/vertically. Hold')} ${chalk.yellow('ctrl')} ${chalk.gray('to scroll a half-page')}
-    ${chalk.yellow('up/down arrows keys')} ${chalk.gray('-- select individual lines out of')} ${chalk.green('$1')} ${chalk.bold('*')}
-    ${chalk.yellow('escape')} ${chalk.gray('-- if selecting lines out of')} ${chalk.green('$1')}${chalk.gray(', resets selection back to entire string')}
+    ${chalk.yellow('ENTER')} ${chalk.gray('-- confirm/proceed')}
+    ${chalk.yellow('TAB')} ${chalk.gray('-- preview on-screen')} ${chalk.gray('(if on phase 2, previews inside')} ${chalk.cyan('less')}${chalk.gray(')')}
+    ${chalk.yellow('SHIFT+tab')} ${chalk.gray('-- preview inside')} ${chalk.cyan('less')}
+    ${chalk.yellow('↑/↓ (up/down)')} ${chalk.gray('-- select individual lines out of')} ${chalk.green('$1')} ${chalk.bold('*')}
+    ${chalk.yellow('SHIFT+↑/↓ (up/down)')} ${chalk.gray('-- scroll output horizontally/vertically. Hold')} ${chalk.yellow('ctrl')} ${chalk.gray('to scroll a half-page')}
+    ${chalk.yellow('ESC')} ${chalk.gray('cancel individual line selection')} ${chalk.bold('*')}
+    ${chalk.yellow('CTRL+r')} ${chalk.gray('refresh/redraw')}
+    ${chalk.yellow('CTRL+e')} ${chalk.gray('erase and reset any input and output (does not change phases)')}
 
 ${chalk.cyan('COMMANDS')}
     ${chalk.cyan(':h')}${chalk.gray(',')} ${chalk.cyan(':help')} ${chalk.gray('-- print help screen')}
