@@ -31,48 +31,56 @@ $ pipe-boy --help
 |   __ \__|.-----.-----.|   __ \.-----.--.--.
 |    __/  ||  _  |  -__||   __ <|  _  |  |  |
 |___|  |__||   __|_____||______/|_____|___  |
-           |__|                       |_____|
+          |__|                       |_____|
 
 DESCRIPTION
-     This command allows you to take output from one command, modify it, then
+    This command allows you to take output from one command, modify it, then
 use it as input into another command.
 
-PROCESS
-     Phase 1) If no arguments are passed, this phase is entered and you are
+    PROCESS
+    Phase 1) If no arguments are passed, this phase is entered and you are
 prompted to enter a command. The output of this command will be used as input
 for the next. You can preview this output by pressing tab to preview on-screen,
 or shift+tab to preview inside less. Once finished, press enter to move on to
 phase 2.
-     Phase 2) This is phase is entered once phase 1 is complete, or if any
+    Phase 2) This is phase is entered once phase 1 is complete, or if any
 arguments are passed when initially running this command. In this phase you are
 prompted to enter another command, where the input from the previous phase is
 available as $1. You can navigate each line of the output by using the arrow
 keys. If a line is selected, that line will be available as $1.
-     By default, the $1 string is not escaped. You can escape it by passing the
+    By default, the $1 string is not escaped. You can escape it by passing the
 :escaped flag (see pipe-boy --controls for more info) or by setting the
 alwaysEscapeInput config option (see pipe-boy config --help for more info). If
 it is escaped, newlines will be replaced by spaces.
 
-COLORS
-     Unfortunately many commands remove colored output when it's not printed
+    COLORS
+    Unfortunately many commands remove colored output when it's not printed
 directly to a terminal. You may have to enable colors for these commands
 case-by-case. You can also setup custom functions to alias commands that force
 colorized output. See below.
 
-CUSTOM FUNCTIONS
-     One drawback of this tool is that any custom aliases or functions on your
+    CUSTOM FUNCTIONS
+    One drawback of this tool is that any custom aliases or functions on your
 terminal are lost when executing commands. One possible solution to this is to
 redefine any custom functions inside the config file
 {{HOME}}/.pipe-boy/functions.sh. Every time a command is run with this tool,
 these definitions will be prepended to the command string.
-     Note: setting alias-es will not work, as they only take effect in
+    Note: setting alias-es will not work, as they only take effect in
 interactive shells (all commands are run inside Node's child_process, which is
 not interactive).
 
-OPTIONS
-     -c, --controls   Print controls screen.
-     -h, --help       Print this help screen.
-     -v, --version    Print the version of this package.
+    OPTIONS
+    -c, --controls   Print controls screen.
+    -h, --help       Print this help screen.
+    -v, --version    Print the version of this package.
+
+    RUNTIME CONFIG
+    Providing config keys and values as CLI options can change the config
+object on a per-run basis. This will not overwrite the config file. Nested keys
+can be separated by a period (.). See pipe-boy config for a list of available
+options.
+
+    pipe-boy --banner.color red # runs as usual changing the banner to red
 
 ```
 
@@ -132,5 +140,17 @@ commands. Defaults to true.
 directory for sub commands (used during phase 2). Defaults to true.
      alwaysEscapeInput -- escapes input string when populating $1. Defaults to
 false.
+     banner.text -- the text used as the banner. Defaults to PipeBoy.
+     banner.font -- the font used as the banner. Defaults to chunky.
+     banner.color -- the color used as the banner. Defaults to green.
+     banner.horizontalLayout -- the horizontalLayout used as the banner.
+Defaults to default.
+     banner.verticalLayout -- the verticalLayout used as the banner. Defaults
+to default.
+
+NOTE ABOUT BANNER
+     PipeBoy makes use of the amazing figlet npm package to make the banner.
+For more information on banner options or to see a full list of available
+fonts, see https://www.npmjs.com/package/figlet.
 
 ```

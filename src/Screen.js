@@ -34,7 +34,7 @@ class Screen {
 		let screen = '';
 
 		// `wrapAnsi` will mangle any `figlet` output
-		screen += this.banner() + '\n';
+		screen += this.banner() + '\n\n';
 		screen += this._wrap(helpScreen());
 		return screen;
 	}
@@ -67,6 +67,11 @@ return (
     -c, --controls   Print controls screen.
     -h, --help       Print this help screen.
     -v, --version    Print the version of this package.
+
+    ${chalk.bold('RUNTIME CONFIG')}
+    Providing config keys and values as CLI options can change the config object on a per-run basis. This will not overwrite the config file. Nested keys can be separated by a period (.). See ${chalk.cyan('pipe-boy config')} for a list of available options.
+
+    ${chalk.cyan('pipe-boy --banner.color red')} ${chalk.gray('# runs as usual changing the banner to red')}
 `
 );
 }
@@ -118,9 +123,17 @@ ${chalk.bold('EXAMPLES')}
     $ pipe-boy config path                  # print path to config file
 
 ${chalk.bold('OPTIONS')}
-    ${chalk.green('FORCE_COLOR')} -- sets the ${chalk.cyan('$FORCE_COLOR')} environment variable when executing commands. Defaults to true.
-    ${chalk.green('setCwdOnCd')} -- attempts to detect when ${chalk.cyan('cd')} is present and sets the working directory for sub commands (used during phase 2). Defaults to true.
+    ${chalk.green('FORCE_COLOR')} -- sets the ${chalk.cyan('$FORCE_COLOR')} environment variable when executing commands. Defaults to ${chalk.cyan('true')}.
+    ${chalk.green('setCwdOnCd')} -- attempts to detect when ${chalk.cyan('cd')} is present and sets the working directory for sub commands (used during phase 2). Defaults to ${chalk.cyan('true')}.
     ${chalk.green('alwaysEscapeInput')} -- escapes input string when populating ${chalk.green('$1')}. Defaults to false.
+    ${chalk.green('banner.text')} -- the text used as the banner. Defaults to ${chalk.green('PipeBoy')}.
+    ${chalk.green('banner.font')} -- the font used as the banner. Defaults to ${chalk.green('chunky')}.
+    ${chalk.green('banner.color')} -- the color used as the banner. Defaults to ${chalk.green('green')}.
+    ${chalk.green('banner.horizontalLayout')} -- the horizontalLayout used as the banner. Defaults to ${chalk.green('default')}.
+    ${chalk.green('banner.verticalLayout')} -- the verticalLayout used as the banner. Defaults to ${chalk.green('default')}.
+
+${chalk.bold('NOTE ABOUT BANNER')}
+    ${chalk.green('PipeBoy')} makes use of the amazing ${chalk.green('figlet')} npm package to make the banner. For more information on banner options or to see a full list of available fonts, see https://www.npmjs.com/package/figlet.
 `
 );
 }
