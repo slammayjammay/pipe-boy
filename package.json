@@ -30,7 +30,9 @@
   "dependencies": {
     "ansi-escapes": "^3.1.0",
     "chalk": "^2.4.1",
+    "deepmerge": "^3.2.0",
     "edit-json-file": "^1.0.8",
+    "figlet": "^1.2.1",
     "minimist": "^1.2.0",
     "node-pager": "^0.3.2",
     "slice-ansi": "^1.0.0",

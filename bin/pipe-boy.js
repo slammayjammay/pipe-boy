@@ -1,35 +1,71 @@
 #!/usr/bin/env node
 
+const { homedir } = require('os');
+const { readFileSync } = require('fs');
 const { join } = require('path');
 const minimist = require('minimist');
-const wrapAnsi = require('wrap-ansi');
+const deepmerge = require('deepmerge');
 const ConfigManager = require('../src/ConfigManager');
 const PipeBoy = require('../src/PipeBoy');
+const Screen = require('../src/Screen');
 const packageJson = require(join(__dirname, '../package.json'));
-const getTermWidth = require('../src/get-term-width');
-const helpScreen = require('../screens/help');
-const controlsScreen = require('../screens/controls');
 
 const args = minimist(process.argv.slice(2), {
 	alias: {
-		h: 'help',
 		c: 'controls',
+		h: 'help',
 		v: 'version'
 	}
 });
 
-if (args._[0] === 'config') {
-	new ConfigManager(args);
+const USER_CONFIG_DIR_PATH = `${homedir()}/.pipe-boy/`;
+const DEFAULT_CONFIG_DIR_PATH = join(__dirname, '../.pipe-boy/');
+
+function getConfig() {
+	// merge default config with user config and runtime options
+	const defaultConfig = require(join(DEFAULT_CONFIG_DIR_PATH, 'config.json'));
+	const userConfig = (() => {
+		try {
+			return require(join(USER_CONFIG_DIR_PATH, 'config.json'));
+		} catch(e) {
+			return {};
+		}
+	})();
+
+	const runtimeOptions = Object.assign({}, args);
+	delete runtimeOptions._;
+
+	return deepmerge.all([defaultConfig, userConfig, runtimeOptions]);
+}
+
+function getCustomFunctions() {
+	try {
+		return readFileSync(join(USER_CONFIG_DIR_PATH, 'functions.sh')).toString();
+	} catch(e) {
+		return '';
+	}
+}
+
+const screen = new Screen();
+
+if (args.config || args._[0] === 'config') {
+	new ConfigManager(args, screen);
 } else if (args.help || args._[0] === 'help') {
-	console.log(wrapAnsi(helpScreen(), getTermWidth(), { trim: false }));
+	console.log(screen.help());
 } else if (args.controls || args._[0] === 'controls') {
-	console.log(wrapAnsi(controlsScreen(), getTermWidth(), { trim: false }));
-} else if (args.version) {
+	console.log(screen.controls());
+} else if (args.version || args._[0] === 'version') {
 	console.log(packageJson.version);
 } else {
 	try {
-		new PipeBoy(process.argv.slice(2).join('\n'))
-			.catch(e => {
+		const pipeBoy = new PipeBoy(
+			args._.join('\n'),
+			getConfig(),
+			getCustomFunctions(),
+			screen
+		);
+
+		pipeBoy.catch(e => {
 				console.log(e);
 				process.exit(1);
 			})
@@ -37,6 +73,7 @@ if (args._[0] === 'config') {
 				console.log(output);
 				process.exit(status);
 			});
+
 	} catch(e) {
 		console.log(e);
 		process.exit(1);

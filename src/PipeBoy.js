@@ -1,5 +1,3 @@
-const { homedir } = require('os');
-const { readFileSync } = require('fs');
 const { execSync, spawnSync } = require('child_process');
 const readline = require('readline');
 const chalk = require('chalk');
@@ -10,12 +8,8 @@ const stripAnsi = require('strip-ansi');
 const pager = require('node-pager');
 const TerminalJumper = require('terminal-jumper');
 const getTermWidth = require('./get-term-width');
-const bannerScreen = require('../screens/banner');
-const controlsScreen = require('../screens/controls');
-const helpScreen = require('../screens/help');
 require('./readline-hack');
 
-const CONFIG_DIR_PATH = `${homedir()}/.pipe-boy/`;
 const ESCAPE_STRING_REGEX = /#.*:([eE]|escaped)\b/;
 const INTERACTIVE_FLAG_REGEX = /#.*:([iI]|interactive)\b/;
 
@@ -26,8 +20,11 @@ const INDICATOR_ERASE_STRING = new Array(eraseStringLength);
 const DEBUG = false;
 
 class PipeBoy {
-	constructor(input = '') {
+	constructor(input = '', config, customFunctions, screen) {
 		this.input = input;
+		this.config = config;
+		this.customFunctions = customFunctions;
+		this.screen = screen;
 
 		this.onKeypress = this.onKeypress.bind(this);
 		this.onEarlyExit = this.onEarlyExit.bind(this);
@@ -53,20 +50,6 @@ class PipeBoy {
 	begin() {
 		process.on('exit', this.onEarlyExit);
 		readline.emitKeypressEvents(process.stdin, this.rl);
-
-		// try to require config file, otherwise set as empty object
-		try {
-			this.config = require(`${CONFIG_DIR_PATH}/config.json`);
-		} catch (e) {
-			this.config = {};
-		}
-
-		// try to read custom functions, otherwise set as empty string
-		try {
-			this.customFunctions = readFileSync(`${CONFIG_DIR_PATH}/functions.sh`).toString();
-		} catch(e) {
-			this.customFunctions = '';
-		}
 
 		this.rl = readline.createInterface({
 			input: process.stdin,
@@ -101,7 +84,8 @@ class PipeBoy {
 			id: 'headerDiv',
 			top: 0,
 			left: 0,
-			width: 1
+			width: 1,
+			wrapOnWord: false
 		};
 
 		const phaseDiv = {
@@ -157,8 +141,19 @@ class PipeBoy {
 		});
 	}
 
+	_getBanner() {
+		const [banner1, banner2] = [this.userConfig.banner || {}, this.defaultConfig];
+		const bannerOptions = {};
+
+		for (const option of ['text', 'color', 'font', 'horizontalLayout', 'verticalLayout']) {
+			bannerOptions[option] = banner1[option] || banner2[option];
+		}
+
+		return this.screen.banner(bannerOptions);
+	}
+
 	_createJumperTemplate() {
-		this.jumper.addBlock(`headerDiv.header`, chalk.green(bannerScreen()));
+		this.jumper.addBlock(`headerDiv.header`, this.screen.banner(this.config.banner));
 		this.jumper.addBlock(`headerDiv`);
 		const headerWidth = this.jumper.getDivision('headerDiv').width();
 
@@ -211,7 +206,7 @@ class PipeBoy {
 			});
 		});
 
-		if (this.config.setCwdOnCd) {
+		if (this.config.setCwdOnCd && this.config.setCwdOnCd !== 'false') {
 			this.cwd = this.parseCwdOnCd(command);
 		}
 
@@ -577,9 +572,9 @@ class PipeBoy {
 
 	getOutputForCommand(command, options) {
 		if ([':h', ':help'].includes(command.trim())) {
-			return [helpScreen(), 0];
+			return [this.screen.help(), 0];
 		} else if ([':c', ':controls'].includes(command.trim())) {
-			return [controlsScreen(), 0];
+			return [this.screen.controls(), 0];
 		} else {
 			return this.exec(command, options);
 		}

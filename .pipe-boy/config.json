@@ -1,5 +1,12 @@
 {
   "FORCE_COLOR": 1,
   "setCwdOnCd": true,
-  "alwaysEscapeInput": false
+  "alwaysEscapeInput": false,
+  "banner": {
+    "text": "PipeBoy",
+    "font": "chunky",
+    "color": "green",
+    "horizontalLayout": "default",
+    "verticalLayout": "default"
+  }
 }

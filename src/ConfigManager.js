@@ -4,16 +4,14 @@ const { join } = require('path');
 const { exec, fork } = require('child_process');
 const editJsonFile = require('edit-json-file');
 const chalk = require('chalk');
-const wrapAnsi = require('wrap-ansi');
-const getTermWidth = require('./get-term-width');
-const configScreen = require('../screens/config');
 
 const CONFIG_DIR_PATH = `${homedir()}/.pipe-boy/`;
 const DEFAULT_CONFIG_DIR_PATH = join(__dirname, '../.pipe-boy/');
 
 class ConfigManager {
-	constructor(args = []) {
+	constructor(args = [], screen) {
 		this.args = args;
+		this.screen = screen;
 
 		const action = this.args._[1];
 		const actionArgs = this.args._.slice(2);
@@ -49,7 +47,7 @@ class ConfigManager {
 	}
 
 	printHelpScreen() {
-		console.log(wrapAnsi(configScreen(), getTermWidth(), { trim: false }));
+		console.log(this.screen.config());
 	}
 
 	warnNoConfig() {
