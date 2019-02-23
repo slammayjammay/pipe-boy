@@ -24,6 +24,14 @@ Example of running command (vim) inheriting terminal stdio
 
 ![vim](https://user-images.githubusercontent.com/11801881/48382554-70fe5880-e696-11e8-9175-961ce933093d.gif)
 
+Example of scroll bars appearing with long output
+
+![scroll bars](https://user-images.githubusercontent.com/11801881/53279939-bab10300-36c9-11e9-876b-195b878ee1c1.gif)
+
+Example of changing config at runtime
+
+![runtime config](https://user-images.githubusercontent.com/11801881/53280107-7de60b80-36cb-11e9-97b0-6c8e7229a9ed.gif)
+
 ## Help screen
 ```
 $ pipe-boy --help
