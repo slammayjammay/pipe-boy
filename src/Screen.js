@@ -86,7 +86,7 @@ return (
     ${chalk.yellow('SHIFT+↑/↓ (up/down)')} ${chalk.gray('-- scroll output horizontally/vertically. Hold')} ${chalk.yellow('ctrl')} ${chalk.gray('to scroll a half-page')}
     ${chalk.yellow('ESC')} ${chalk.gray('cancel individual line selection')} ${chalk.bold('*')}
     ${chalk.yellow('CTRL+r')} ${chalk.gray('refresh/redraw')}
-    ${chalk.yellow('CTRL+e')} ${chalk.gray('erase and reset any input and output (does not change phases)')}
+    ${chalk.yellow('CTRL+q')} ${chalk.gray('erase and reset any input and output (does not change phases)')}
 
 ${chalk.cyan('COMMANDS')}
     ${chalk.cyan(':h')}${chalk.gray(',')} ${chalk.cyan(':help')} ${chalk.gray('-- print help screen')}

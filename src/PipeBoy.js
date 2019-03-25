@@ -170,7 +170,7 @@ class PipeBoy {
 		this.jumper.addBlock('outputDiv.output');
 
 		this.jumper.getBlock('commandDiv.divider').content(
-			new Array(this.jumper.getDivision('outputDiv').contentWidth()).join('=')
+			new Array(this.jumper.getDivision('outputDiv').contentWidth() + 1).join('=')
 		);
 	}
 
@@ -193,7 +193,6 @@ class PipeBoy {
 				if (line === '') {
 					// show warning if line is empty
 					that._populateOutputDiv(chalk.red('Please enter a command'));
-					// that.jumper.getBlock('outputDiv.output').content(chalk.red('Please enter a command'));
 					that.jumper.chain()
 						.render()
 						.jumpTo('commandDiv.input', -1)
@@ -338,8 +337,8 @@ class PipeBoy {
 			this.onEscape();
 		} else if (key.ctrl && key.name === 'r') {
 			this.onCtrlR();
-		} else if (key.ctrl && key.name === 'e') {
-			this.onCtrlE();
+		} else if (key.ctrl && key.name === 'q') {
+			this.onCtrlQ();
 		}
 
 		if (shouldPropagate) {
@@ -454,12 +453,14 @@ class PipeBoy {
 		outputDiv.scrollRight(amountX);
 		outputDiv.scrollDown(amountY);
 
-		this.jumper.chain().render();
+		this.jumper.setNeedsRender('outputDiv');
+
+		this.jumper.chain()
+			.render()
+			.appendToChain(this.jumper.getDivision('indicatorEraseDiv').eraseString());
 
 		if (this.isSelecting) {
 			this.jumper
-				.appendToChain(this.jumper.getDivision('indicatorEraseDiv').eraseString())
-				.appendToChain(this.jumper.getDivision('outputDiv').renderString())
 				.appendToChain(this.jumpToOutputLine(this.selectingIdx))
 				.appendToChain(INDICATOR_STRING);
 		}
@@ -543,9 +544,9 @@ class PipeBoy {
 	}
 
 	/**
-	 * Control+e -- erase everything and reset (does not change phases).
+	 * Control+q -- erase everything and reset (does not change phases).
 	 */
-	onCtrlE() {
+	onCtrlQ() {
 		this.jumper.getBlock('commandDiv.input').content('');
 		this.jumper.getBlock('outputDiv.output').content('');
 

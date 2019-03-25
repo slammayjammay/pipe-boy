@@ -34,9 +34,9 @@
     "edit-json-file": "^1.0.8",
     "figlet": "^1.2.1",
     "minimist": "^1.2.0",
-    "node-pager": "^0.3.2",
+    "node-pager": "^0.3.3",
     "slice-ansi": "^1.0.0",
-    "terminal-jumper": "^1.2.1",
+    "terminal-jumper": "^1.2.2",
     "wrap-ansi": "^3.0.1"
   }
 }
