@@ -142,7 +142,7 @@ class PipeBoy {
 	}
 
 	_getBanner() {
-		const [banner1, banner2] = [this.userConfig.banner || {}, this.defaultConfig];
+		const [banner1, banner2] = [this.config.banner || {}, this.defaultConfig];
 		const bannerOptions = {};
 
 		for (const option of ['text', 'color', 'font', 'horizontalLayout', 'verticalLayout']) {
