@@ -2,6 +2,7 @@
   "FORCE_COLOR": 1,
   "setCwdOnCd": true,
   "alwaysEscapeInput": false,
+  "shell": "/bin/bash",
   "banner": {
     "text": "PipeBoy",
     "font": "chunky",

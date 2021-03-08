@@ -596,7 +596,7 @@ class PipeBoy {
 
 			// deep clone options with default values
 			const spawnOptions = Object.assign({}, {
-				shell: true,
+				shell: this.config.shell,
 				stdio: isInteractive ? 'inherit' : null,
 				cwd: options.cwd,
 				env: Object.assign({}, process.env, {
