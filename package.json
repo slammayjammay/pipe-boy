@@ -1,6 +1,6 @@
 {
   "name": "pipe-boy",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Interactive CLI to pass output from one command as input to another",
   "bin": {
     "pipe-boy": "bin/pipe-boy.js"
