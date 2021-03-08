@@ -8,7 +8,7 @@ const stripAnsi = require('strip-ansi');
 const pager = require('node-pager');
 const TerminalJumper = require('terminal-jumper');
 const getTermWidth = require('./get-term-width');
-require('./readline-hack');
+require('readline-refresh-line/hijack')
 
 const ESCAPE_STRING_REGEX = /#.*:([eE]|escaped)\b/;
 const INTERACTIVE_FLAG_REGEX = /#.*:([iI]|interactive)\b/;
@@ -27,7 +27,8 @@ class PipeBoy {
 		this.screen = screen;
 
 		this.onKeypress = this.onKeypress.bind(this);
-		this.onEarlyExit = this.onEarlyExit.bind(this);
+
+		process.on('exit', () => this.jumper && this.jumper.rmcup());
 
 		this.jumper = null;
 		this.isPhase1 = false;
@@ -43,13 +44,10 @@ class PipeBoy {
 		} else {
 			this.isPhase1 = true;
 		}
-
-		return this.begin();
 	}
 
-	begin() {
-		process.on('exit', this.onEarlyExit);
-		readline.emitKeypressEvents(process.stdin, this.rl);
+	async begin() {
+		readline.emitKeypressEvents(process.stdin);
 
 		this.rl = readline.createInterface({
 			input: process.stdin,
@@ -68,8 +66,8 @@ class PipeBoy {
 		// add our own listener -- this is where we decide if the event should
 		// propagate
 		this.rl.input.on('keypress', this.onKeypress);
-
 		this.jumper = this._createTerminalJumper();
+		this.jumper.init();
 		this._createJumperTemplate();
 
 		if (this.isPhase1) {
@@ -84,37 +82,37 @@ class PipeBoy {
 			id: 'headerDiv',
 			top: 0,
 			left: 0,
-			width: 1,
+			width: '100%',
 			wrapOnWord: false
 		};
 
 		const phaseDiv = {
 			id: 'phaseDiv',
 			left: 0,
-			top: headerDiv.id,
-			width: 0.2
+			top: '{headerDiv}b',
+			width: '20%'
 		};
 
 		const infoDiv = {
 			id: 'infoDiv',
-			left: phaseDiv.id,
-			top: headerDiv.id,
-			width: 0.7
+			left: '{phaseDiv}r',
+			top: '{headerDiv}b',
+			width: '70%'
 		};
 
 		const commandDiv = {
 			id: 'commandDiv',
 			left: 0,
-			top: infoDiv.id,
-			width: 1,
+			top: '{infoDiv}b',
+			width: '100%',
 			wrapOnWord: false
 		};
 
 		const outputDiv = {
 			id: 'outputDiv',
 			left: 0,
-			top: commandDiv.id,
-			width: 0.9,
+			top: '{commandDiv}b',
+			width: '90%',
 			overflowX: 'scroll',
 			scrollBarX: true,
 			scrollBarY: true
@@ -122,16 +120,16 @@ class PipeBoy {
 
 		const indicatorEraseDiv = {
 			id: 'indicatorEraseDiv',
-			left: outputDiv.id,
+			left: '{outputDiv}r',
 			top: 0,
-			width: 0.1,
-			height: 'full'
+			width: '10%',
+			height: '{outputDiv}h'
 		};
 
 		const debugDiv = {
 			id: 'debugger',
-			width: 0.4,
-			left: 0.6,
+			width: '40%',
+			left: '60%',
 			top: 0
 		};
 
@@ -139,17 +137,6 @@ class PipeBoy {
 			divisions: [headerDiv, phaseDiv, infoDiv, commandDiv, outputDiv, indicatorEraseDiv],
 			debug: DEBUG ? debugDiv : false
 		});
-	}
-
-	_getBanner() {
-		const [banner1, banner2] = [this.config.banner || {}, this.defaultConfig];
-		const bannerOptions = {};
-
-		for (const option of ['text', 'color', 'font', 'horizontalLayout', 'verticalLayout']) {
-			bannerOptions[option] = banner1[option] || banner2[option];
-		}
-
-		return this.screen.banner(bannerOptions);
 	}
 
 	_createJumperTemplate() {
@@ -181,7 +168,7 @@ class PipeBoy {
 		this.jumper
 			.chain()
 			.render()
-			.jumpTo('commandDiv.input', -1, inputBlock.height() - 1)
+			.jumpTo(`{commandDiv}l + ${this.rl.cursor}`, '{commandDiv}t')
 			.execute();
 
 		const command = await new Promise(resolve => {
@@ -195,7 +182,7 @@ class PipeBoy {
 					that._populateOutputDiv(chalk.red('Please enter a command'));
 					that.jumper.chain()
 						.render()
-						.jumpTo('commandDiv.input', -1)
+						.jumpTo('{commandDiv}l', '{commandDiv}t')
 						.execute();
 				} else {
 					// otherwise proceed to phase 2
@@ -246,7 +233,7 @@ class PipeBoy {
 		this.jumper
 			.chain()
 			.render()
-			.jumpTo('commandDiv.input', -1)
+			.jumpTo(`{commandDiv}l + ${this.rl.line.length}`, '{commandDiv}t')
 			.execute();
 
 		const command = await new Promise(resolve => {
@@ -268,10 +255,6 @@ class PipeBoy {
 			}
 		})();
 
-		process.removeListener('exit', this.onEarlyExit);
-
-		this.jumper.erase();
-		this.jumper.destroy();
 		this.rl.close();
 
 		const [output, status, originalCommand] = await this.getOutputForCommand(
@@ -284,6 +267,10 @@ class PipeBoy {
 			commandThatRan += `cd "${this.cwd}" && `;
 		}
 		commandThatRan += originalCommand;
+
+		this.jumper.rmcup();
+		this.jumper.destroy();
+		this.jumper = null;
 
 		console.log(chalk.cyan(commandThatRan));
 		console.log();
@@ -300,7 +287,6 @@ class PipeBoy {
 
 		division.scrollX(0);
 		division.scrollY(0);
-
 	}
 
 	onBackCommand() {
@@ -355,7 +341,7 @@ class PipeBoy {
 				this.jumper
 					.chain()
 					.render()
-					.jumpTo('commandDiv.input', -1, this.rl.prevRows)
+					.jumpTo(`{commandDiv}l + ${this.rl.line.length}`, '{commandDiv}t')
 					.execute();
 			}
 		}
@@ -368,7 +354,11 @@ class PipeBoy {
 
 	onTab(char, key) {
 		this.jumper.getBlock('commandDiv.input').content(this.rl.line);
-		this.jumper.chain().render().jumpTo('commandDiv.input', this.rl.cursor).execute();
+		this.jumper
+			.chain()
+			.render()
+			.jumpTo(`{commandDiv}l + ${this.rl.cursor}`, '{commandDiv}t')
+			.execute();
 
 		if (this.isPhase1) {
 			return this.onTabPhase1(char, key);
@@ -390,7 +380,7 @@ class PipeBoy {
 		this.jumper
 			.chain()
 			.render()
-			.jumpTo('commandDiv.input', this.rl.cursor)
+			.jumpTo(`{commandDiv}l + ${this.rl.cursor}`, '{commandDiv}t')
 			.execute();
 	}
 
@@ -427,7 +417,7 @@ class PipeBoy {
 				.appendToChain(INDICATOR_STRING);
 		}
 
-		this.jumper.jumpTo('commandDiv.input', this.rl.cursor);
+		this.jumper.jumpTo(`{commandDiv}l + ${this.rl.cursor}`, '{commandDiv}t')
 		this.jumper.execute();
 	}
 
@@ -465,7 +455,9 @@ class PipeBoy {
 				.appendToChain(INDICATOR_STRING);
 		}
 
-		this.jumper.jumpTo('commandDiv.input', this.rl.cursor).execute();
+		this.jumper
+			.jumpTo(`{commandDiv}l + ${this.rl.cursor}`, '{commandDiv}t')
+			.execute();
 	}
 
 	async onArrow(char, key) {
@@ -481,9 +473,8 @@ class PipeBoy {
 
 		// erase previous indicator
 		if (this.isSelecting) {
-			this.jumper
-				.appendToChain(this.jumper.getDivision('outputDiv').renderString())
-				.appendToChain(this.jumper.getDivision('indicatorEraseDiv').eraseString());
+			this.jumper.appendToChain(this.jumper.getDivision('outputDiv').eraseString());
+			this.jumper.appendToChain(this.jumper.getDivision('outputDiv').renderString());
 		}
 
 		this.isSelecting = true;
@@ -492,7 +483,9 @@ class PipeBoy {
 		if (this.selectingIdx < 0 && outputDiv.scrollPosY() === 0) {
 			// move back up to command prompt
 			this.isSelecting = false;
-			this.jumper.jumpTo('commandDiv.input', this.rl.cursor).execute();
+			this.jumper
+				.jumpTo(`{commandDiv}l + ${this.rl.cursor}`, '{commandDiv}t')
+				.execute();
 			return;
 		} else if (this.selectingIdx < 0) {
 			// scroll up
@@ -509,7 +502,7 @@ class PipeBoy {
 		this.jumper
 			.appendToChain(this.jumpToOutputLine(this.selectingIdx))
 			.appendToChain(INDICATOR_STRING)
-			.jumpTo('commandDiv.input', this.rl.cursor)
+			.jumpTo(`{commandDiv}l + ${this.rl.cursor}`, '{commandDiv}t')
 			.execute();
 	}
 
@@ -520,7 +513,7 @@ class PipeBoy {
 			this.jumper.chain()
 				.appendToChain(this.jumper.getDivision('indicatorEraseDiv').eraseString())
 				.appendToChain(this.jumper.getDivision('outputDiv').renderString())
-				.jumpTo('commandDiv.input', this.rl.cursor)
+				.jumpTo(`{commandDiv}l + ${this.rl.cursor}`, '{commandDiv}t')
 				.execute();
 		}
 	}
@@ -540,7 +533,7 @@ class PipeBoy {
 				.appendToChain(INDICATOR_STRING);
 		}
 
-		this.jumper.jumpTo('commandDiv.input', this.rl.cursor).execute();
+		this.jumper.jumpTo(`{commandDiv}l + ${this.rl.cursor}`, '{commandDiv}t').execute();
 	}
 
 	/**
@@ -556,7 +549,7 @@ class PipeBoy {
 
 		this.jumper.chain()
 			.render()
-			.jumpTo('commandDiv.input', this.rl.cursor)
+			.jumpTo(`{commandDiv}l + ${this.rl.cursor}`, '{commandDiv}t')
 			.execute();
 	}
 
@@ -568,7 +561,7 @@ class PipeBoy {
 		const selectedRowWidth = block.getWidthOnRow(selectedRow);
 		const posX = Math.min(selectedRowWidth, outputDiv.contentWidth()) + outputDiv.scrollPosX();
 
-		return this.jumper.jumpToString('outputDiv', posX, index);
+		return this.jumper.jumpToString(`{outputDiv}l + ${selectedRowWidth}`, `{outputDiv}t + ${index}`);
 	}
 
 	getOutputForCommand(command, options) {
@@ -635,13 +628,6 @@ class PipeBoy {
 
 			resolve([output, stderr ? 1 : 0, commandString]);
 		});
-	}
-
-	onEarlyExit() {
-		this.jumper && this.jumper.erase();
-		this.rl && this.rl.close();
-
-		process.exit(1);
 	}
 }
 

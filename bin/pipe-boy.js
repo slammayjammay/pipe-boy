@@ -65,15 +65,17 @@ if (args.config || args._[0] === 'config') {
 			screen
 		);
 
-		pipeBoy.catch(e => {
+		pipeBoy.begin().catch(e => {
 				console.log(e);
 				process.exit(1);
 			})
-			.then(([output, status]) => {
-				console.log(output);
-				process.exit(status);
+			.then(data => {
+				if (data) {
+					const [output, status] = data;
+					console.log(output);
+					process.exit(status);
+				}
 			});
-
 	} catch(e) {
 		console.log(e);
 		process.exit(1);

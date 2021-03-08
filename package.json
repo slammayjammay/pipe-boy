@@ -37,8 +37,9 @@
     "figlet": "^1.2.1",
     "minimist": "^1.2.0",
     "node-pager": "^0.3.3",
+    "readline-refresh-line": "git+https://github.com/slammayjammay/readline-refresh-line.git",
     "slice-ansi": "^1.0.0",
-    "terminal-jumper": "^1.2.2",
+    "terminal-jumper": "^2.0.0",
     "wrap-ansi": "^3.0.1"
   }
 }
